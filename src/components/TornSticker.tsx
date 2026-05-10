@@ -4,15 +4,14 @@ import { useId, type ReactNode } from "react";
 
 type TornStickerProps = {
   src: string;
-  rotationDeg: number;
   alt?: string;
   className?: string;
   children?: ReactNode;
 };
 
+/** 撕边与图像；旋转与缩放由外层 motion 负责 */
 export function TornSticker({
   src,
-  rotationDeg,
   alt = "",
   className = "",
   children,
@@ -31,10 +30,7 @@ export function TornSticker({
   ].join(" ");
 
   return (
-    <div
-      className={`relative inline-block ${className}`}
-      style={{ transform: `rotate(${rotationDeg}deg)` }}
-    >
+    <div className={`relative inline-block ${className}`}>
       <svg width="0" height="0" className="absolute overflow-hidden" aria-hidden>
         <defs>
           <filter
@@ -62,7 +58,6 @@ export function TornSticker({
           </filter>
         </defs>
       </svg>
-      {/* Blob URLs from removeBackground; use native img */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={src}

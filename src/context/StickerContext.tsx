@@ -9,15 +9,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type {
-  CategoryId,
-  PendingDateChange,
-  StickerDialogState,
-  StickerItem,
-} from "@/types/sticker";
+import type { CategoryId, StickerDialogState, StickerItem } from "@/types/sticker";
 import { loadStickersFromStorage, saveStickersToStorage } from "@/lib/stickerStorage";
-import { replaceLocalCalendarDay } from "@/lib/dateUtils";
-
 export type { CategoryId, StickerItem } from "@/types/sticker";
 
 const emptyBuckets = (): Record<CategoryId, StickerItem[]> => ({
@@ -30,6 +23,17 @@ function defaultPositionForIndex(index: number): { x: number; y: number } {
   const col = index % 5;
   const row = Math.floor(index / 5);
   return { x: 32 + col * 56, y: 32 + row * 72 };
+}
+
+function nextGlobalZIndex(buckets: Record<CategoryId, StickerItem[]>): number {
+  let m = 0;
+  const cats: CategoryId[] = ["recipes", "fidget", "grocery"];
+  for (const c of cats) {
+    for (const s of buckets[c]) {
+      if (typeof s.zIndex === "number" && s.zIndex > m) m = s.zIndex;
+    }
+  }
+  return m + 1;
 }
 
 function inferRecordedAt(s: StickerItem): string {
@@ -54,6 +58,12 @@ function migrateSticker(s: StickerItem, cat: CategoryId): StickerItem {
   const name = s.name ?? "";
   const amount = s.amount ?? "";
   const recordedAt = inferRecordedAt(s);
+  const scale =
+    typeof s.scale === "number" && s.scale > 0 && Number.isFinite(s.scale)
+      ? s.scale
+      : 1;
+  const zIndex =
+    typeof s.zIndex === "number" && Number.isFinite(s.zIndex) ? s.zIndex : 0;
 
   if (cat === "recipes") {
     return {
@@ -63,6 +73,8 @@ function migrateSticker(s: StickerItem, cat: CategoryId): StickerItem {
       name,
       amount,
       recordedAt,
+      scale,
+      zIndex,
       calories: s.calories,
     };
   }
@@ -74,6 +86,8 @@ function migrateSticker(s: StickerItem, cat: CategoryId): StickerItem {
     name,
     amount,
     recordedAt,
+    scale,
+    zIndex,
   };
 }
 
@@ -82,10 +96,6 @@ type StickerContextValue = {
   dialog: StickerDialogState | null;
   selectedDayKey: string | null;
   setSelectedDayKey: (key: string | null) => void;
-  pendingDateChange: PendingDateChange | null;
-  requestDateChange: (payload: PendingDateChange) => void;
-  cancelPendingDateChange: () => void;
-  confirmPendingDateChange: () => void;
   openCreateSticker: (
     category: CategoryId,
     src: string,
@@ -94,6 +104,8 @@ type StickerContextValue = {
   openEditSticker: (category: CategoryId, id: string) => void;
   closeDialog: () => void;
   addSticker: (category: CategoryId, item: StickerItem) => void;
+  removeSticker: (category: CategoryId, id: string) => void;
+  bringStickerToFront: (category: CategoryId, id: string) => void;
   updateStickerMeta: (
     category: CategoryId,
     id: string,
@@ -110,6 +122,13 @@ type StickerContextValue = {
     id: string,
     iso: string,
   ) => void;
+  updateStickerTransform: (
+    category: CategoryId,
+    id: string,
+    patch: Partial<
+      Pick<StickerItem, "x" | "y" | "rotationDeg" | "scale" | "recordedAt">
+    >,
+  ) => void;
 };
 
 const StickerContext = createContext<StickerContextValue | null>(null);
@@ -120,8 +139,6 @@ export function StickerProvider({ children }: { children: ReactNode }) {
     useState<Record<CategoryId, StickerItem[]>>(emptyBuckets);
   const [dialog, setDialog] = useState<StickerDialogState | null>(null);
   const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null);
-  const [pendingDateChange, setPendingDateChange] =
-    useState<PendingDateChange | null>(null);
 
   useEffect(() => {
     const loaded = loadStickersFromStorage();
@@ -149,16 +166,47 @@ export function StickerProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  const openEditSticker = useCallback((category: CategoryId, id: string) => {
-    setDialog({ mode: "edit", category, id });
-  }, []);
-
   const closeDialog = useCallback(() => setDialog(null), []);
 
+  const bringStickerToFront = useCallback((category: CategoryId, id: string) => {
+    setStickersByCategory((prev) => {
+      const z = nextGlobalZIndex(prev);
+      return {
+        ...prev,
+        [category]: prev[category].map((s) =>
+          s.id === id ? { ...s, zIndex: z } : s,
+        ),
+      };
+    });
+  }, []);
+
+  const openEditSticker = useCallback(
+    (category: CategoryId, id: string) => {
+      bringStickerToFront(category, id);
+      setDialog({ mode: "edit", category, id });
+    },
+    [bringStickerToFront],
+  );
+
   const addSticker = useCallback((category: CategoryId, item: StickerItem) => {
+    setStickersByCategory((prev) => {
+      const z = nextGlobalZIndex(prev);
+      const normalized: StickerItem = {
+        ...item,
+        scale: item.scale ?? 1,
+        zIndex: z,
+      };
+      return {
+        ...prev,
+        [category]: [normalized, ...prev[category]],
+      };
+    });
+  }, []);
+
+  const removeSticker = useCallback((category: CategoryId, id: string) => {
     setStickersByCategory((prev) => ({
       ...prev,
-      [category]: [item, ...prev[category]],
+      [category]: prev[category].filter((s) => s.id !== id),
     }));
   }, []);
 
@@ -208,31 +256,23 @@ export function StickerProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  const requestDateChange = useCallback((payload: PendingDateChange) => {
-    setPendingDateChange(payload);
-  }, []);
-
-  const cancelPendingDateChange = useCallback(() => {
-    setPendingDateChange(null);
-  }, []);
-
-  const confirmPendingDateChange = useCallback(() => {
-    setPendingDateChange((pending) => {
-      if (!pending) return null;
-      const { category, id, newDayKey } = pending;
+  const updateStickerTransform = useCallback(
+    (
+      category: CategoryId,
+      id: string,
+      patch: Partial<
+        Pick<StickerItem, "x" | "y" | "rotationDeg" | "scale" | "recordedAt">
+      >,
+    ) => {
       setStickersByCategory((prev) => ({
         ...prev,
-        [category]: prev[category].map((s) => {
-          if (s.id !== id) return s;
-          return {
-            ...s,
-            recordedAt: replaceLocalCalendarDay(s.recordedAt, newDayKey),
-          };
-        }),
+        [category]: prev[category].map((s) =>
+          s.id === id ? { ...s, ...patch } : s,
+        ),
       }));
-      return null;
-    });
-  }, []);
+    },
+    [],
+  );
 
   const value = useMemo(
     () => ({
@@ -240,34 +280,31 @@ export function StickerProvider({ children }: { children: ReactNode }) {
       dialog,
       selectedDayKey,
       setSelectedDayKey,
-      pendingDateChange,
-      requestDateChange,
-      cancelPendingDateChange,
-      confirmPendingDateChange,
       openCreateSticker,
       openEditSticker,
       closeDialog,
       addSticker,
+      removeSticker,
+      bringStickerToFront,
       updateStickerMeta,
       updateStickerPosition,
       updateStickerRecordedAt,
+      updateStickerTransform,
     }),
     [
       stickersByCategory,
       dialog,
       selectedDayKey,
-      setSelectedDayKey,
-      pendingDateChange,
       openCreateSticker,
       openEditSticker,
       closeDialog,
       addSticker,
+      removeSticker,
+      bringStickerToFront,
       updateStickerMeta,
       updateStickerPosition,
       updateStickerRecordedAt,
-      requestDateChange,
-      cancelPendingDateChange,
-      confirmPendingDateChange,
+      updateStickerTransform,
     ],
   );
 
@@ -302,8 +339,10 @@ export function buildNewStickerItem(
     id,
     src: fields.src,
     rotationDeg: fields.rotationDeg,
+    scale: 1,
     x: pos.x,
     y: pos.y,
+    zIndex: 0,
     recordedAt: fields.recordedAt,
     name: fields.name.trim(),
     amount: fields.amount.trim(),

@@ -5,8 +5,6 @@ import { GridPaper } from "@/components/GridPaper";
 import { CategoryNav } from "@/components/CategoryNav";
 import { StickerProvider } from "@/context/StickerContext";
 import { StickerMetaDialog } from "@/components/StickerMetaDialog";
-import { DateChangeConfirmDialog } from "@/components/DateChangeConfirmDialog";
-
 const maShanZheng = Ma_Shan_Zheng({
   weight: "400",
   subsets: ["latin"],
@@ -42,9 +40,8 @@ export default function RootLayout({
               <CategoryNav />
             </div>
           </header>
-          <main className="mx-auto max-w-3xl px-4 py-8">{children}</main>
+          <main className="mx-auto max-w-3xl px-4 pt-8 pb-[100px]">{children}</main>
           <StickerMetaDialog />
-          <DateChangeConfirmDialog />
         </StickerProvider>
       </body>
     </html>

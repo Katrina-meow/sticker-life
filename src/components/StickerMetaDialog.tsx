@@ -127,12 +127,13 @@ export function StickerMetaDialog() {
           ) : null}
           {previewSrc ? (
             <div className="flex justify-center rounded-xl bg-stone-100/60 py-4">
-              <TornSticker
-                src={previewSrc}
-                rotationDeg={previewRotation}
-                alt="预览"
-                className="scale-90"
-              />
+              <div
+                style={{
+                  transform: `rotate(${previewRotation}deg) scale(0.9)`,
+                }}
+              >
+                <TornSticker src={previewSrc} alt="预览" />
+              </div>
             </div>
           ) : null}
 

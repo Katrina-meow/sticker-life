@@ -10,12 +10,18 @@ import {
 } from "react";
 import type { CategoryId } from "@/types/sticker";
 import { useStickerStore } from "@/context/StickerContext";
-import { blobToDataUrl } from "@/lib/stickerStorage";
 import { dayKeyFromRecordedAt } from "@/lib/dateUtils";
+import { processStickerImage } from "@/lib/processStickerImage";
 import { DraggableStickerCard } from "@/components/DraggableStickerCard";
 
 function randomRotation(): number {
   return Math.random() * 6 - 3;
+}
+
+function isImageLikeFile(file: File): boolean {
+  if (file.type.startsWith("image/")) return true;
+  const n = file.name.toLowerCase();
+  return n.endsWith(".heic") || n.endsWith(".heif");
 }
 
 type ImageStickerUploadProps = {
@@ -26,22 +32,37 @@ export function ImageStickerUpload({ category }: ImageStickerUploadProps) {
   const { openCreateSticker } = useStickerStore();
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [fallbackHint, setFallbackHint] = useState(false);
+  const hintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const onFile = useCallback(
     async (file: File | undefined) => {
-      if (!file || !file.type.startsWith("image/")) return;
-      setError(null);
+      if (!file || !isImageLikeFile(file)) return;
+      if (hintTimerRef.current) {
+        clearTimeout(hintTimerRef.current);
+        hintTimerRef.current = null;
+      }
+      setFallbackHint(false);
       setBusy(true);
       try {
-        const { removeBackground } = await import("@imgly/background-removal");
-        const blob = await removeBackground(file, { model: "isnet" });
-        const dataUrl = await blobToDataUrl(blob);
+        const { dataUrl, usedFallback } = await processStickerImage(file);
         const rotationDeg = randomRotation();
         openCreateSticker(category, dataUrl, rotationDeg);
+        if (usedFallback) {
+          setFallbackHint(true);
+          hintTimerRef.current = setTimeout(() => setFallbackHint(false), 6000);
+        }
       } catch (e) {
         console.error(e);
-        setError("抠图失败，请换一张图或稍后再试。");
+        try {
+          const { blobToDataUrl } = await import("@/lib/stickerStorage");
+          const dataUrl = await blobToDataUrl(file);
+          openCreateSticker(category, dataUrl, randomRotation());
+        } catch {
+          /* ignore */
+        }
+        setFallbackHint(true);
+        hintTimerRef.current = setTimeout(() => setFallbackHint(false), 6000);
       } finally {
         setBusy(false);
         if (inputRef.current) inputRef.current.value = "";
@@ -60,7 +81,7 @@ export function ImageStickerUpload({ category }: ImageStickerUploadProps) {
       <input
         ref={inputRef}
         type="file"
-        accept="image/*"
+        accept="image/*,.heic,.heif"
         className="hidden"
         onChange={onChange}
         disabled={busy}
@@ -71,11 +92,11 @@ export function ImageStickerUpload({ category }: ImageStickerUploadProps) {
         disabled={busy}
         className="inline-flex max-w-xs items-center justify-center rounded-lg border-2 border-dashed border-stone-500/50 bg-white/50 px-4 py-3 text-sm font-medium text-stone-800 shadow-sm transition hover:bg-white/80 disabled:cursor-wait disabled:opacity-70"
       >
-        {busy ? "正在抠图…" : "上传图片，生成手撕贴纸"}
+        {busy ? "AI 正在抠图中…" : "上传图片，生成手撕贴纸"}
       </button>
-      {error ? (
-        <p className="text-sm text-red-700" role="alert">
-          {error}
+      {fallbackHint ? (
+        <p className="max-w-md rounded-lg border border-amber-200/80 bg-amber-50/90 px-3 py-2 text-sm text-amber-950">
+          由于性能限制，已为您生成原图贴纸。
         </p>
       ) : null}
     </div>
@@ -116,15 +137,13 @@ export function StickerBoard({ category, workspaceRef }: StickerBoardProps) {
         <>
           {filterHint}
           {list.length === 0 ? null : (
-            <div
-              className="relative mt-3 min-h-[680px] w-full touch-none rounded-xl border border-dashed border-stone-400/35 bg-white/25 px-2 py-3 shadow-inner"
-            >
+            <div className="relative mt-3 min-h-[680px] w-full rounded-xl border border-dashed border-stone-400/35 bg-white/25 px-2 py-3 shadow-inner">
               {list.map((item) => (
                 <DraggableStickerCard
                   key={item.id}
                   category={category}
                   item={item}
-                  dragConstraintsRef={workspaceRef}
+                  workspaceRef={workspaceRef}
                 />
               ))}
             </div>
