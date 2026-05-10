@@ -7,6 +7,8 @@ type TornStickerProps = {
   alt?: string;
   className?: string;
   children?: ReactNode;
+  /** 深色画板下增强边缘可见度 */
+  edgeHighlight?: boolean;
 };
 
 /** 撕边与图像；旋转与缩放由外层 motion 负责 */
@@ -15,9 +17,17 @@ export function TornSticker({
   alt = "",
   className = "",
   children,
+  edgeHighlight = false,
 }: TornStickerProps) {
   const rawId = useId().replace(/:/g, "");
   const filterId = `torn-edge-${rawId}`;
+
+  const edgeGlow = edgeHighlight
+    ? [
+        "drop-shadow(0 0 1px rgba(255, 255, 255, 0.55))",
+        "drop-shadow(0 0 3px rgba(255, 255, 255, 0.28))",
+      ].join(" ")
+    : "";
 
   const layeredFilter = [
     `url(#${filterId})`,
@@ -27,7 +37,10 @@ export function TornSticker({
     "drop-shadow(0 0 6px rgb(255 255 255))",
     "drop-shadow(3px 5px 10px rgba(0, 0, 0, 0.2))",
     "drop-shadow(1px 2px 3px rgba(0, 0, 0, 0.12))",
-  ].join(" ");
+    edgeGlow,
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <div className={`relative inline-block ${className}`}>

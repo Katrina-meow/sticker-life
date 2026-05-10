@@ -90,12 +90,12 @@ export function ImageStickerUpload({ category }: ImageStickerUploadProps) {
         type="button"
         onClick={() => inputRef.current?.click()}
         disabled={busy}
-        className="inline-flex max-w-xs items-center justify-center rounded-lg border-2 border-dashed border-stone-500/50 bg-white/50 px-4 py-3 text-sm font-medium text-stone-800 shadow-sm transition hover:bg-white/80 disabled:cursor-wait disabled:opacity-70"
+        className="inline-flex max-w-xs items-center justify-center rounded-lg border-2 border-dashed border-[color:var(--input-border)] bg-[var(--input-bg)] px-4 py-3 text-sm font-medium text-[color:var(--text-primary)] shadow-sm transition hover:brightness-105 disabled:cursor-wait disabled:opacity-70"
       >
         {busy ? "AI 正在抠图中…" : "上传图片，生成手撕贴纸"}
       </button>
       {fallbackHint ? (
-        <p className="max-w-md rounded-lg border border-amber-200/80 bg-amber-50/90 px-3 py-2 text-sm text-amber-950">
+        <p className="max-w-md rounded-lg border border-[color:var(--card-border)] bg-[var(--card-accent)] px-3 py-2 text-sm text-[color:var(--text-primary)]">
           由于性能限制，已为您生成原图贴纸。
         </p>
       ) : null}
@@ -111,7 +111,10 @@ type StickerBoardProps = {
 export function StickerBoard({ category, workspaceRef }: StickerBoardProps) {
   const { stickersByCategory, selectedDayKey, clearSelection } =
     useStickerStore();
-  const raw = stickersByCategory[category];
+  const raw = useMemo(
+    () => stickersByCategory[category] ?? [],
+    [stickersByCategory, category],
+  );
 
   const list = useMemo(() => {
     if (!selectedDayKey) return raw;
@@ -122,24 +125,26 @@ export function StickerBoard({ category, workspaceRef }: StickerBoardProps) {
 
   const filterHint =
     selectedDayKey && raw.length > 0 && list.length === 0 ? (
-      <p className="text-sm text-amber-900/90">
-        选中的这一天还没有记录。可上传新贴纸，或点击日历下方「显示全部日期」。
+      <p className="text-sm text-[color:var(--text-primary)]">
+        选中的这一天还没有记录。可上传新贴纸，或打开顶部导航「日历」选择其它日期或「显示全部日期」。
       </p>
     ) : null;
 
   return (
     <section className="mt-8">
-      <h2 className="mb-4 font-[family-name:var(--font-hand)] text-xl text-stone-700">
+      <h2 className="mb-4 font-[family-name:var(--font-hand)] text-xl text-[color:var(--text-primary)]">
         我的贴纸
       </h2>
       {raw.length === 0 ? (
-        <p className="text-sm text-stone-600">还没有贴纸，先上传一张吧。</p>
+        <p className="text-sm text-[color:var(--text-muted)]">
+          还没有贴纸，先上传一张吧。
+        </p>
       ) : (
         <>
           {filterHint}
           {list.length === 0 ? null : (
             <div
-              className="relative mt-3 min-h-[680px] w-full rounded-xl border border-dashed border-stone-400/35 bg-white/25 px-2 py-3 shadow-inner"
+              className="relative mt-3 min-h-[min(680px,calc(100vh-12rem))] w-full rounded-xl border border-dashed border-[color:var(--board-border)] bg-[var(--board-bg)] px-2 py-3 shadow-inner touch-no-callout"
               onPointerDown={(e) => {
                 const t = e.target as HTMLElement;
                 if (!t.closest("[data-sticker-card]")) clearSelection();

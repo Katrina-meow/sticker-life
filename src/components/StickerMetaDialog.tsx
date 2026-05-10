@@ -6,8 +6,16 @@ import {
   useStickerStore,
 } from "@/context/StickerContext";
 import { TornSticker } from "@/components/TornSticker";
-import { formatRecordedAtLabel } from "@/lib/dateUtils";
+import {
+  dayKeyFromDate,
+  dayKeyFromRecordedAt,
+  formatRecordedAtLabel,
+  isoFromDayKeyWithTime,
+} from "@/lib/dateUtils";
 import { getFieldMode } from "@/lib/categoryConfig";
+
+const inputClass =
+  "mt-1.5 w-full rounded-lg border border-[color:var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-[color:var(--text-primary)] shadow-inner outline-none focus:ring-2 focus:ring-[color:var(--accent)]/35";
 
 export function StickerMetaDialog() {
   const {
@@ -16,6 +24,7 @@ export function StickerMetaDialog() {
     stickersByCategory,
     addSticker,
     updateStickerMeta,
+    updateStickerRecordedAt,
   } = useStickerStore();
 
   const [name, setName] = useState("");
@@ -23,6 +32,9 @@ export function StickerMetaDialog() {
   const [calories, setCalories] = useState("");
   const [hero, setHero] = useState("");
   const [studyDuration, setStudyDuration] = useState("");
+  const [recordDayKey, setRecordDayKey] = useState(() =>
+    dayKeyFromDate(new Date()),
+  );
 
   const editingSticker = useMemo(() => {
     if (!dialog || dialog.mode !== "edit") return null;
@@ -40,6 +52,7 @@ export function StickerMetaDialog() {
       setCalories("");
       setHero("");
       setStudyDuration("");
+      setRecordDayKey(dayKeyFromDate(new Date()));
       return;
     }
     if (editingSticker) {
@@ -48,6 +61,7 @@ export function StickerMetaDialog() {
       setCalories(editingSticker.calories ?? "");
       setHero(editingSticker.hero ?? "");
       setStudyDuration(editingSticker.studyDuration ?? "");
+      setRecordDayKey(dayKeyFromRecordedAt(editingSticker.recordedAt));
     }
   }, [dialog, editingSticker]);
 
@@ -78,6 +92,7 @@ export function StickerMetaDialog() {
     e.preventDefault();
     if (dialog.mode === "create") {
       const listLen = stickersByCategory[dialog.category]?.length ?? 0;
+      const recordedAt = isoFromDayKeyWithTime(recordDayKey, new Date());
       const item = buildNewStickerItem(dialog.category, listLen, {
         src: dialog.src,
         rotationDeg: dialog.rotationDeg,
@@ -86,7 +101,7 @@ export function StickerMetaDialog() {
         calories: fieldMode === "food" ? calories : undefined,
         hero: fieldMode === "game" ? hero : undefined,
         studyDuration: fieldMode === "study" ? studyDuration : undefined,
-        recordedAt: new Date().toISOString(),
+        recordedAt,
       });
       addSticker(dialog.category, item);
       closeDialog();
@@ -105,7 +120,16 @@ export function StickerMetaDialog() {
     if (fieldMode === "study") {
       patch.studyDuration = studyDuration.trim() || undefined;
     }
+    const es = editingSticker;
+    if (!es) return;
     updateStickerMeta(dialog.category, dialog.id, patch);
+    const newIso = isoFromDayKeyWithTime(
+      recordDayKey,
+      new Date(es.recordedAt),
+    );
+    if (newIso !== es.recordedAt) {
+      updateStickerRecordedAt(dialog.category, dialog.id, newIso);
+    }
     closeDialog();
   };
 
@@ -138,34 +162,45 @@ export function StickerMetaDialog() {
     >
       <button
         type="button"
-        className="absolute inset-0 bg-stone-900/35 backdrop-blur-[2px]"
+        className="absolute inset-0 bg-[var(--overlay-scrim)] backdrop-blur-[2px]"
         aria-label="关闭"
         onClick={handleBackdrop}
       />
-      <div className="relative z-10 w-full max-w-md overflow-hidden rounded-2xl border border-amber-200/80 bg-[#fffdf6] shadow-[0_20px_50px_rgba(0,0,0,0.18)]">
-        <div className="border-b border-amber-100/90 bg-gradient-to-r from-amber-50/90 to-[#fff9e6] px-5 py-4">
+      <div className="relative z-10 w-full max-w-md overflow-hidden rounded-2xl border border-[color:var(--card-border)] bg-[var(--dialog-surface)] shadow-[0_20px_50px_rgba(0,0,0,0.18)]">
+        <div className="border-b border-[color:var(--dialog-header-border)] bg-[var(--card-accent)] px-5 py-4">
           <h2
             id="sticker-dialog-title"
-            className="font-[family-name:var(--font-hand)] text-2xl text-amber-950"
+            className="font-[family-name:var(--font-hand)] text-2xl text-[color:var(--text-primary)]"
           >
             {title}
           </h2>
-          <p className="mt-1 text-sm text-stone-600">
-            选中贴纸时，可点底部信息条随时修改。
+          <p className="mt-1 text-sm text-[color:var(--text-muted)]">
+            选中贴纸时，可点底部信息条随时修改。记录日期可在下方选择。
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4 px-5 py-5">
+          <label className="block text-sm font-medium text-[color:var(--text-primary)]">
+            记录日期
+            <input
+              type="date"
+              required
+              value={recordDayKey}
+              onChange={(e) => setRecordDayKey(e.target.value)}
+              className={inputClass}
+            />
+          </label>
           {dialog.mode === "edit" && editingSticker ? (
-            <p className="rounded-lg bg-stone-100/80 px-3 py-2 text-xs text-stone-600">
-              记录时间（只读，改日期可将贴纸拖到日历格子上）：{" "}
-              <span className="font-[family-name:var(--font-hand)] text-stone-800">
+            <p className="rounded-lg bg-[var(--card-accent)] px-3 py-2 text-xs text-[color:var(--text-muted)]">
+              当前显示时间：{" "}
+              <span className="font-[family-name:var(--font-hand)] text-[color:var(--text-primary)]">
                 {formatRecordedAtLabel(editingSticker.recordedAt)}
               </span>
+              （修改日期会保留原有时分）
             </p>
           ) : null}
           {previewSrc ? (
-            <div className="flex justify-center rounded-xl bg-stone-100/60 py-4">
+            <div className="flex justify-center rounded-xl bg-[var(--card-accent)] py-4">
               <div
                 style={{
                   transform: `rotate(${previewRotation}deg) scale(0.9)`,
@@ -176,57 +211,57 @@ export function StickerMetaDialog() {
             </div>
           ) : null}
 
-          <label className="block text-sm font-medium text-stone-800">
+          <label className="block text-sm font-medium text-[color:var(--text-primary)]">
             {nameLabel}
             <input
               required
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="mt-1.5 w-full rounded-lg border border-stone-300/80 bg-white/90 px-3 py-2 text-stone-900 shadow-inner outline-none ring-amber-300/40 focus:ring-2"
+              className={inputClass}
               placeholder={namePlaceholder}
             />
           </label>
 
           {fieldMode === "game" ? (
             <>
-              <label className="block text-sm font-medium text-stone-800">
+              <label className="block text-sm font-medium text-[color:var(--text-primary)]">
                 战绩
                 <input
                   required
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
-                  className="mt-1.5 w-full rounded-lg border border-stone-300/80 bg-white/90 px-3 py-2 text-stone-900 shadow-inner outline-none ring-amber-300/40 focus:ring-2"
+                  className={inputClass}
                   placeholder="例如：胜利 / MVP"
                 />
               </label>
-              <label className="block text-sm font-medium text-stone-800">
+              <label className="block text-sm font-medium text-[color:var(--text-primary)]">
                 英雄
                 <input
                   value={hero}
                   onChange={(e) => setHero(e.target.value)}
-                  className="mt-1.5 w-full rounded-lg border border-stone-300/80 bg-white/90 px-3 py-2 text-stone-900 shadow-inner outline-none ring-amber-300/40 focus:ring-2"
+                  className={inputClass}
                   placeholder="例如：妲己"
                 />
               </label>
             </>
           ) : fieldMode === "study" ? (
             <>
-              <label className="block text-sm font-medium text-stone-800">
+              <label className="block text-sm font-medium text-[color:var(--text-primary)]">
                 学习时长
                 <input
                   required
                   value={studyDuration}
                   onChange={(e) => setStudyDuration(e.target.value)}
-                  className="mt-1.5 w-full rounded-lg border border-stone-300/80 bg-white/90 px-3 py-2 text-stone-900 shadow-inner outline-none ring-amber-300/40 focus:ring-2"
+                  className={inputClass}
                   placeholder="例如：2 小时 / 90 分钟"
                 />
               </label>
-              <label className="block text-sm font-medium text-stone-800">
+              <label className="block text-sm font-medium text-[color:var(--text-primary)]">
                 金额（可选）
                 <input
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
-                  className="mt-1.5 w-full rounded-lg border border-stone-300/80 bg-white/90 px-3 py-2 text-stone-900 shadow-inner outline-none ring-amber-300/40 focus:ring-2"
+                  className={inputClass}
                   placeholder="例如：教材 38 元"
                   inputMode="decimal"
                 />
@@ -234,25 +269,25 @@ export function StickerMetaDialog() {
             </>
           ) : (
             <>
-              <label className="block text-sm font-medium text-stone-800">
+              <label className="block text-sm font-medium text-[color:var(--text-primary)]">
                 金额
                 <input
                   required
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
-                  className="mt-1.5 w-full rounded-lg border border-stone-300/80 bg-white/90 px-3 py-2 text-stone-900 shadow-inner outline-none ring-amber-300/40 focus:ring-2"
+                  className={inputClass}
                   placeholder="例如：18 元"
                   inputMode="decimal"
                 />
               </label>
               {fieldMode === "food" ? (
-                <label className="block text-sm font-medium text-stone-800">
+                <label className="block text-sm font-medium text-[color:var(--text-primary)]">
                   热量（kcal）
                   <input
                     required
                     value={calories}
                     onChange={(e) => setCalories(e.target.value)}
-                    className="mt-1.5 w-full rounded-lg border border-stone-300/80 bg-white/90 px-3 py-2 text-stone-900 shadow-inner outline-none ring-amber-300/40 focus:ring-2"
+                    className={inputClass}
                     placeholder="例如：320"
                     inputMode="numeric"
                   />
@@ -265,13 +300,14 @@ export function StickerMetaDialog() {
             <button
               type="button"
               onClick={handleBackdrop}
-              className="rounded-lg border border-stone-300/80 bg-white px-4 py-2 text-sm font-medium text-stone-700 shadow-sm hover:bg-stone-50"
+              className="rounded-lg border border-[color:var(--input-border)] bg-[var(--input-bg)] px-4 py-2 text-sm font-medium text-[color:var(--text-primary)] shadow-sm hover:brightness-105"
             >
               取消
             </button>
             <button
               type="submit"
-              className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white shadow-md hover:bg-amber-700"
+              className="rounded-lg px-4 py-2 text-sm font-medium text-[var(--accent-fg)] shadow-md hover:opacity-95"
+              style={{ backgroundColor: "var(--accent)" }}
             >
               完成
             </button>

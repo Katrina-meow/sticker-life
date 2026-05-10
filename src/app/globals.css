@@ -2,11 +2,120 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Default / cute (before hydration matches initial state) */
+:root,
+[data-theme="cute"] {
+  --canvas-bg: #fff9f0;
+  --grid-line: rgba(120, 110, 95, 0.22);
+  --text-primary: #292524;
+  --text-muted: #78716c;
+  --header-bg: rgba(255, 249, 240, 0.92);
+  --header-border: rgba(120, 113, 108, 0.35);
+  --card-bg: rgba(255, 251, 235, 0.96);
+  --card-border: rgba(120, 53, 15, 0.22);
+  --card-accent: rgba(254, 243, 199, 0.55);
+  --input-bg: rgba(255, 255, 255, 0.92);
+  --input-border: rgba(168, 162, 158, 0.75);
+  --accent: #d97706;
+  --accent-hover: #b45309;
+  --accent-fg: #ffffff;
+  --dialog-surface: #fffdf6;
+  --dialog-header-border: rgba(253, 230, 138, 0.85);
+  --overlay-scrim: rgba(28, 25, 23, 0.35);
+  --nav-pill-active-bg: rgba(254, 243, 199, 0.95);
+  --nav-pill-active-border: rgba(146, 64, 14, 0.45);
+  --nav-pill-active-text: #422006;
+  --nav-pill-idle-bg: rgba(255, 255, 255, 0.45);
+  --nav-pill-idle-border: rgba(168, 162, 158, 0.45);
+  --board-border: rgba(168, 162, 158, 0.38);
+  --board-bg: rgba(255, 255, 255, 0.28);
+  --cal-cell-bg: #fffef8;
+  --cal-cell-empty: rgba(244, 236, 216, 0.55);
+  --cal-grid: rgba(120, 90, 40, 0.2);
+}
+
+[data-theme="apple"],
+[data-theme="cute"] {
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+[data-theme="apple"] {
+  --canvas-bg: #f5f5f7;
+  --grid-line: rgba(0, 0, 0, 0.06);
+  --text-primary: #1d1d1f;
+  --text-muted: #6e6e73;
+  --header-bg: rgba(245, 245, 247, 0.88);
+  --header-border: rgba(0, 0, 0, 0.08);
+  --card-bg: rgba(255, 255, 255, 0.82);
+  --card-border: rgba(0, 0, 0, 0.08);
+  --card-accent: rgba(0, 0, 0, 0.03);
+  --input-bg: #ffffff;
+  --input-border: rgba(0, 0, 0, 0.12);
+  --accent: #007aff;
+  --accent-hover: #0066d6;
+  --accent-fg: #ffffff;
+  --dialog-surface: #ffffff;
+  --dialog-header-border: rgba(0, 0, 0, 0.06);
+  --overlay-scrim: rgba(0, 0, 0, 0.28);
+  --nav-pill-active-bg: rgba(0, 122, 255, 0.12);
+  --nav-pill-active-border: rgba(0, 122, 255, 0.35);
+  --nav-pill-active-text: #1d1d1f;
+  --nav-pill-idle-bg: rgba(255, 255, 255, 0.72);
+  --nav-pill-idle-border: rgba(0, 0, 0, 0.1);
+  --board-border: rgba(0, 0, 0, 0.1);
+  --board-bg: rgba(255, 255, 255, 0.5);
+  --cal-cell-bg: #ffffff;
+  --cal-cell-empty: rgba(245, 245, 247, 0.9);
+  --cal-grid: rgba(0, 0, 0, 0.08);
+}
+
+[data-theme="dark"] {
+  --canvas-bg: #000000;
+  --grid-line: rgba(255, 255, 255, 0.06);
+  --text-primary: #f5f5f7;
+  --text-muted: #a1a1a6;
+  --header-bg: rgba(0, 0, 0, 0.72);
+  --header-border: rgba(255, 255, 255, 0.1);
+  --card-bg: rgba(28, 28, 30, 0.92);
+  --card-border: rgba(255, 255, 255, 0.12);
+  --card-accent: rgba(255, 255, 255, 0.06);
+  --input-bg: rgba(44, 44, 46, 0.95);
+  --input-border: rgba(255, 255, 255, 0.15);
+  --accent: #0a84ff;
+  --accent-hover: #409cff;
+  --accent-fg: #ffffff;
+  --dialog-surface: #1c1c1e;
+  --dialog-header-border: rgba(255, 255, 255, 0.1);
+  --overlay-scrim: rgba(0, 0, 0, 0.55);
+  --nav-pill-active-bg: rgba(10, 132, 255, 0.22);
+  --nav-pill-active-border: rgba(10, 132, 255, 0.45);
+  --nav-pill-active-text: #f5f5f7;
+  --nav-pill-idle-bg: rgba(255, 255, 255, 0.08);
+  --nav-pill-idle-border: rgba(255, 255, 255, 0.12);
+  --board-border: rgba(255, 255, 255, 0.12);
+  --board-bg: rgba(255, 255, 255, 0.05);
+  --cal-cell-bg: rgba(44, 44, 46, 0.95);
+  --cal-cell-empty: rgba(28, 28, 30, 0.85);
+  --cal-grid: rgba(255, 255, 255, 0.1);
+}
+
 body {
   font-family: var(--font-noto), ui-sans-serif, system-ui, sans-serif;
+  background-color: var(--canvas-bg);
+  color: var(--text-primary);
 }
 
 .sticker-img-touch {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.touch-no-callout {
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;

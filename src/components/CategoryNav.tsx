@@ -2,15 +2,33 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import type { AppTheme } from "@/context/UiContext";
+import { useUi } from "@/context/UiContext";
 import { useStickerStore } from "@/context/StickerContext";
+import { CalendarOverlay } from "@/components/CalendarOverlay";
+
+const navScrollClass =
+  "flex flex-nowrap gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] touch-pan-x touch-no-callout [&::-webkit-scrollbar]:hidden";
 
 export function CategoryNav() {
   const pathname = usePathname();
   const router = useRouter();
-  const { categories, addCategory } = useStickerStore();
+  const { categories, addCategory, stickersByCategory } = useStickerStore();
+  const { theme, setTheme, gridVisible, setGridVisible } = useUi();
   const [adding, setAdding] = useState(false);
   const [newLabel, setNewLabel] = useState("");
+  const [calendarOpen, setCalendarOpen] = useState(false);
+
+  const categoryId = useMemo(() => {
+    const m = pathname.match(/^\/c\/([^/]+)/);
+    return m?.[1] ?? null;
+  }, [pathname]);
+
+  const calendarStickers = useMemo(
+    () => (categoryId ? stickersByCategory[categoryId] ?? [] : []),
+    [categoryId, stickersByCategory],
+  );
 
   const onConfirmAdd = useCallback(() => {
     const label = newLabel.trim();
@@ -24,12 +42,27 @@ export function CategoryNav() {
     router.push(`/c/${id}`);
   }, [addCategory, newLabel, router]);
 
+  const themeDots: { id: AppTheme; label: string; className: string }[] = [
+    {
+      id: "apple",
+      label: "苹果模式",
+      className: "bg-[#f5f5f7] ring-1 ring-black/15",
+    },
+    {
+      id: "cute",
+      label: "可爱模式",
+      className: "bg-[#ffd6e8] ring-1 ring-pink-400/50",
+    },
+    {
+      id: "dark",
+      label: "深色模式",
+      className: "bg-[#1c1c1e] ring-1 ring-white/25",
+    },
+  ];
+
   return (
     <>
-      <nav
-        className="flex flex-nowrap gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] touch-pan-x [&::-webkit-scrollbar]:hidden"
-        aria-label="分类"
-      >
+      <nav className={navScrollClass} aria-label="分类与工具">
         {categories.map(({ id, label }) => {
           const href = `/c/${id}`;
           const active = pathname === href;
@@ -40,8 +73,8 @@ export function CategoryNav() {
               className={[
                 "shrink-0 rounded-full border px-4 py-1.5 text-sm transition-colors",
                 active
-                  ? "border-amber-800/50 bg-amber-100/90 text-amber-950 shadow-sm"
-                  : "border-stone-400/50 bg-white/40 text-stone-700 hover:bg-white/70",
+                  ? "shadow-sm border-[color:var(--nav-pill-active-border)] bg-[var(--nav-pill-active-bg)] text-[color:var(--nav-pill-active-text)]"
+                  : "border-[color:var(--nav-pill-idle-border)] bg-[var(--nav-pill-idle-bg)] text-[color:var(--text-primary)] hover:brightness-105",
               ].join(" ")}
             >
               {label}
@@ -51,12 +84,61 @@ export function CategoryNav() {
         <button
           type="button"
           onClick={() => setAdding(true)}
-          className="shrink-0 rounded-full border border-dashed border-stone-500/60 bg-white/30 px-3 py-1.5 text-sm text-stone-700 hover:bg-white/60"
+          className="shrink-0 rounded-full border border-dashed border-[color:var(--nav-pill-idle-border)] bg-[var(--nav-pill-idle-bg)] px-3 py-1.5 text-sm text-[color:var(--text-primary)] hover:brightness-105"
           aria-label="添加分类"
         >
           ＋
         </button>
+
+        <span
+          className="mx-1 shrink-0 self-center text-[color:var(--text-muted)]"
+          aria-hidden
+        >
+          |
+        </span>
+
+        <div className="flex shrink-0 items-center gap-1.5" role="group" aria-label="风格">
+          {themeDots.map((d) => (
+            <button
+              key={d.id}
+              type="button"
+              onClick={() => setTheme(d.id)}
+              aria-label={d.label}
+              aria-pressed={theme === d.id}
+              className={[
+                "h-6 w-6 shrink-0 rounded-full transition",
+                d.className,
+                theme === d.id ? "ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-[var(--header-bg)]" : "",
+              ].join(" ")}
+            />
+          ))}
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setGridVisible(!gridVisible)}
+          aria-pressed={gridVisible}
+          aria-label={gridVisible ? "隐藏背景网格" : "显示背景网格"}
+          className="shrink-0 rounded-full border border-[color:var(--nav-pill-idle-border)] bg-[var(--nav-pill-idle-bg)] px-3 py-1.5 text-xs text-[color:var(--text-primary)] hover:brightness-105"
+        >
+          网格
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setCalendarOpen(true)}
+          aria-label="打开日历"
+          className="shrink-0 rounded-full border border-[color:var(--nav-pill-idle-border)] bg-[var(--nav-pill-idle-bg)] px-3 py-1.5 text-xs text-[color:var(--text-primary)] hover:brightness-105"
+        >
+          日历
+        </button>
       </nav>
+
+      <CalendarOverlay
+        open={calendarOpen}
+        onClose={() => setCalendarOpen(false)}
+        stickers={calendarStickers}
+      />
 
       {adding ? (
         <div
@@ -67,21 +149,21 @@ export function CategoryNav() {
         >
           <button
             type="button"
-            className="absolute inset-0 bg-stone-900/30 backdrop-blur-[1px]"
+            className="absolute inset-0 bg-[var(--overlay-scrim)] backdrop-blur-[1px]"
             aria-label="关闭"
             onClick={() => {
               setAdding(false);
               setNewLabel("");
             }}
           />
-          <div className="relative z-10 w-full max-w-sm rounded-xl border border-amber-200/80 bg-[#fffdf6] p-5 shadow-lg">
+          <div className="relative z-10 w-full max-w-sm rounded-xl border border-[color:var(--card-border)] bg-[var(--dialog-surface)] p-5 shadow-lg">
             <h2
               id="add-cat-title"
-              className="font-[family-name:var(--font-hand)] text-xl text-amber-950"
+              className="font-[family-name:var(--font-hand)] text-xl text-[color:var(--text-primary)]"
             >
               新建分类
             </h2>
-            <label className="mt-3 block text-sm text-stone-700">
+            <label className="mt-3 block text-sm text-[color:var(--text-muted)]">
               名称
               <input
                 autoFocus
@@ -93,7 +175,7 @@ export function CategoryNav() {
                     onConfirmAdd();
                   }
                 }}
-                className="mt-1 w-full rounded-lg border border-stone-300/80 bg-white px-3 py-2 text-stone-900 outline-none ring-amber-300/40 focus:ring-2"
+                className="mt-1 w-full rounded-lg border border-[color:var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-[color:var(--text-primary)] outline-none ring-[var(--accent)]/30 focus:ring-2"
                 placeholder="例如：健身"
               />
             </label>
@@ -104,14 +186,15 @@ export function CategoryNav() {
                   setAdding(false);
                   setNewLabel("");
                 }}
-                className="rounded-lg border border-stone-300/80 bg-white px-3 py-1.5 text-sm text-stone-700"
+                className="rounded-lg border border-[color:var(--input-border)] bg-[var(--input-bg)] px-3 py-1.5 text-sm text-[color:var(--text-primary)]"
               >
                 取消
               </button>
               <button
                 type="button"
                 onClick={onConfirmAdd}
-                className="rounded-lg bg-amber-600 px-3 py-1.5 text-sm text-white hover:bg-amber-700"
+                className="rounded-lg px-3 py-1.5 text-sm text-[var(--accent-fg)]"
+                style={{ backgroundColor: "var(--accent)" }}
               >
                 添加
               </button>

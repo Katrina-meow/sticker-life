@@ -1,18 +1,12 @@
 "use client";
 
 import { usePinch } from "@use-gesture/react";
-import { animate, motion, useMotionValue } from "framer-motion";
-import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { motion, useMotionValue } from "framer-motion";
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import type { CategoryKey, StickerItem } from "@/types/sticker";
 import { useStickerStore } from "@/context/StickerContext";
-import {
-  findCalendarDayFromPoint,
-  snapStickerTopLeftToCalendarCell,
-} from "@/lib/calendarHitTest";
-import {
-  formatRecordedAtLabel,
-  replaceLocalCalendarDay,
-} from "@/lib/dateUtils";
+import { useUi } from "@/context/UiContext";
+import { formatRecordedAtLabel } from "@/lib/dateUtils";
 import { getFieldMode } from "@/lib/categoryConfig";
 import { TornSticker } from "@/components/TornSticker";
 
@@ -26,8 +20,11 @@ type DraggableStickerCardProps = {
 const DRAG_Z_BASE = 1_000_000;
 const SELECTED_Z_BASE = 900_000;
 
-const dragLiftShadow =
+const dragLiftShadowLight =
   "0 20px 40px rgba(0, 0, 0, 0.2), 0 10px 22px rgba(0, 0, 0, 0.14), 0 4px 8px rgba(0, 0, 0, 0.08)";
+const dragLiftShadowDark =
+  "0 24px 48px rgba(0, 0, 0, 0.65), 0 0 28px rgba(255, 255, 255, 0.14)";
+
 const dragLiftTransition = {
   duration: 0.2,
   ease: [0.25, 0.1, 0.25, 1] as const,
@@ -72,7 +69,23 @@ function StickerSelectedInfoBar({
   item: StickerItem;
   onEdit: () => void;
 }) {
+  const { theme } = useUi();
   const segments = infoBarSegments(category, item);
+
+  const barClass =
+    theme === "apple"
+      ? "border border-black/10 bg-white/70 px-3 py-1.5 shadow-md backdrop-blur-[20px]"
+      : theme === "cute"
+        ? "border border-amber-400/55 bg-gradient-to-r from-amber-100/95 via-rose-50/88 to-amber-50/90 px-3 py-1.5 shadow-md backdrop-blur-sm"
+        : "border border-white/20 bg-white/10 px-3 py-1.5 shadow-lg backdrop-blur-md";
+
+  const textClass =
+    theme === "dark"
+      ? "text-white/90"
+      : theme === "apple"
+        ? "text-[#1D1D1F]"
+        : "text-amber-950";
+
   return (
     <button
       type="button"
@@ -81,13 +94,13 @@ function StickerSelectedInfoBar({
         e.stopPropagation();
         onEdit();
       }}
-      className="pointer-events-auto absolute bottom-2 left-1/2 z-[80] flex max-w-[min(100%,20rem)] -translate-x-1/2 flex-nowrap items-center gap-2 overflow-x-auto rounded-full border border-white/50 bg-white/40 px-3 py-1.5 text-left shadow-md backdrop-blur-md"
+      className={`pointer-events-auto absolute bottom-2 left-1/2 z-[80] flex max-w-[min(100%,20rem)] -translate-x-1/2 flex-nowrap items-center gap-2 overflow-x-auto rounded-full text-left ${barClass}`}
       title="点击编辑"
     >
       {segments.map((s) => (
         <span
           key={s.key}
-          className="whitespace-nowrap font-[family-name:var(--font-hand)] text-[11px] text-stone-900"
+          className={`whitespace-nowrap font-[family-name:var(--font-hand)] text-[11px] ${textClass}`}
         >
           {s.text}
         </span>
@@ -101,6 +114,7 @@ export function DraggableStickerCard({
   item,
   workspaceRef,
 }: DraggableStickerCardProps) {
+  const { theme } = useUi();
   const {
     openEditSticker,
     updateStickerPosition,
@@ -121,6 +135,22 @@ export function DraggableStickerCard({
 
   const isSelected =
     selectedSticker?.category === category && selectedSticker.id === item.id;
+
+  const dragShadow = useMemo(
+    () => (theme === "dark" ? dragLiftShadowDark : dragLiftShadowLight),
+    [theme],
+  );
+
+  const selectedOutline = useMemo(() => {
+    if (!isSelected) return "";
+    if (theme === "apple") {
+      return "outline outline-1 outline-[#007AFF] outline-offset-2";
+    }
+    if (theme === "cute") {
+      return "outline outline-2 outline-dashed outline-amber-600 outline-offset-2";
+    }
+    return "outline outline-1 outline-[rgba(255,255,255,0.45)] outline-offset-2 [box-shadow:0_0_14px_rgba(255,255,255,0.14)]";
+  }, [isSelected, theme]);
 
   useEffect(() => {
     mx.set(item.x);
@@ -159,59 +189,28 @@ export function DraggableStickerCard({
     },
   );
 
-  const handleDragEnd = useCallback(async () => {
-    const el = cardRef.current;
-    const ws = workspaceRef.current;
-    if (!el || !ws) {
-      setDragging(false);
-      updateStickerPosition(category, item.id, mx.get(), my.get());
-      return;
-    }
-    const r = el.getBoundingClientRect();
-    const cx = r.left + r.width / 2;
-    const cy = r.top + r.height / 2;
-    const hit = findCalendarDayFromPoint(cx, cy);
-
-    if (hit) {
-      const snap = snapStickerTopLeftToCalendarCell({
-        dayKey: hit,
-        workspaceEl: ws,
-        stickerWidth: r.width,
-        stickerHeight: r.height,
-      });
-      if (snap) {
-        await Promise.all([
-          animate(mx, snap.x, { duration: 0.22, ease: "easeOut" }),
-          animate(my, snap.y, { duration: 0.22, ease: "easeOut" }),
-        ]);
-        const newIso = replaceLocalCalendarDay(item.recordedAt, hit);
-        updateStickerTransform(category, item.id, {
-          x: snap.x,
-          y: snap.y,
-          recordedAt: newIso,
-        });
-        setDragging(false);
-        return;
-      }
-    }
-    updateStickerPosition(category, item.id, mx.get(), my.get());
+  const handleDragEnd = useCallback(() => {
     setDragging(false);
-  }, [
-    category,
-    item.id,
-    item.recordedAt,
-    mx,
-    my,
-    updateStickerPosition,
-    updateStickerTransform,
-    workspaceRef,
-  ]);
+    updateStickerPosition(category, item.id, mx.get(), my.get());
+  }, [category, item.id, mx, my, updateStickerPosition]);
 
   const stackZ = dragging
     ? DRAG_Z_BASE + item.zIndex
     : isSelected
       ? SELECTED_Z_BASE + item.zIndex
       : item.zIndex;
+
+  const pinchSurface =
+    theme === "dark"
+      ? "border-white/35 bg-white/12"
+      : theme === "apple"
+        ? "border-black/15 bg-white/85"
+        : "border-stone-500/50 bg-white/70";
+
+  const deleteBtn =
+    theme === "dark"
+      ? "border-white/25 bg-zinc-900/90 text-white"
+      : "border-stone-600/40 bg-stone-900/80 text-white";
 
   return (
     <motion.div
@@ -229,7 +228,7 @@ export function DraggableStickerCard({
       animate={{
         scale: dragging ? 1.1 : 1,
         opacity: dragging ? 0.6 : 1,
-        boxShadow: dragging ? dragLiftShadow : "0px 0px 0px rgba(0,0,0,0)",
+        boxShadow: dragging ? dragShadow : "0px 0px 0px rgba(0,0,0,0)",
       }}
       transition={dragLiftTransition}
       style={{
@@ -250,20 +249,18 @@ export function DraggableStickerCard({
         bringStickerToFront(category, item.id);
       }}
       onDragEnd={() => {
-        void handleDragEnd();
+        handleDragEnd();
       }}
       className={[
-        "relative select-none rounded-sm",
-        isSelected
-          ? "outline outline-1 outline-dashed outline-stone-400 outline-offset-2"
-          : "",
+        "relative select-none rounded-sm touch-no-callout",
+        selectedOutline,
       ].join(" ")}
     >
       {isSelected ? (
         <button
           type="button"
           aria-label="删除贴纸"
-          className="absolute -left-0 -top-0 z-[70] flex h-6 w-6 items-center justify-center rounded-full border border-stone-600/40 bg-stone-900/80 text-sm leading-none text-white shadow-md hover:bg-red-900/90"
+          className={`absolute -left-0 -top-0 z-[70] flex h-6 w-6 items-center justify-center rounded-full border text-sm leading-none shadow-md hover:bg-red-900/90 ${deleteBtn}`}
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
             e.stopPropagation();
@@ -286,14 +283,19 @@ export function DraggableStickerCard({
         }}
         className="relative inline-block"
       >
-        <TornSticker src={item.src} alt={item.name || "贴纸"} className="pb-1 pr-1" />
+        <TornSticker
+          src={item.src}
+          alt={item.name || "贴纸"}
+          className="pb-1 pr-1"
+          edgeHighlight={theme === "dark"}
+        />
       </motion.div>
       {isSelected ? (
         <>
           <div
             ref={pinchRef}
             role="presentation"
-            className="absolute bottom-1 right-1 z-[75] h-7 w-7 touch-none rounded-full border border-stone-500/50 bg-white/70 shadow backdrop-blur-sm"
+            className={`absolute bottom-1 right-1 z-[75] h-7 w-7 touch-none rounded-full border shadow backdrop-blur-sm ${pinchSurface}`}
             aria-label="双指缩放与旋转"
           />
           <StickerSelectedInfoBar

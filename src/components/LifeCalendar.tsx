@@ -9,6 +9,8 @@ const WEEK_LABELS = ["日", "一", "二", "三", "四", "五", "六"];
 
 type LifeCalendarProps = {
   stickers: StickerItem[];
+  /** 选日或「显示全部」后回调（用于关闭 Overlay） */
+  onAfterSelect?: () => void;
 };
 
 function monthMatrix(year: number, monthIndex: number): (number | null)[] {
@@ -22,7 +24,7 @@ function monthMatrix(year: number, monthIndex: number): (number | null)[] {
   return cells;
 }
 
-export function LifeCalendar({ stickers }: LifeCalendarProps) {
+export function LifeCalendar({ stickers, onAfterSelect }: LifeCalendarProps) {
   const { selectedDayKey, setSelectedDayKey } = useStickerStore();
   const [cursor, setCursor] = useState(() => new Date());
 
@@ -53,38 +55,52 @@ export function LifeCalendar({ stickers }: LifeCalendarProps) {
     setCursor(new Date(year, monthIndex + 1, 1));
   };
 
+  const pickDay = (dayKey: string) => {
+    setSelectedDayKey(dayKey);
+    onAfterSelect?.();
+  };
+
+  const showAll = () => {
+    setSelectedDayKey(null);
+    onAfterSelect?.();
+  };
+
   return (
-    <div className="rounded-lg border-[3px] border-double border-amber-900/35 bg-[#faf6e8]/95 p-2 shadow-[inset_0_0_0_1px_rgba(120,90,40,0.12)]">
-      <div className="flex items-center justify-between border-b border-amber-900/20 pb-2">
+    <div className="rounded-lg border-2 border-[color:var(--card-border)] bg-[var(--card-bg)] p-2 shadow-[inset_0_0_0_1px_var(--cal-grid)]">
+      <div className="flex items-center justify-between border-b border-[color:var(--cal-grid)] pb-2">
         <button
           type="button"
           onClick={prevMonth}
-          className="rounded px-2 py-0.5 text-sm text-stone-700 hover:bg-amber-100/80"
+          className="touch-no-callout rounded px-2 py-0.5 text-sm text-[color:var(--text-primary)] hover:bg-[var(--card-accent)]"
           aria-label="上一月"
         >
           ‹
         </button>
-        <span className="font-[family-name:var(--font-hand)] text-lg text-amber-950">
+        <span className="font-[family-name:var(--font-hand)] text-lg text-[color:var(--text-primary)]">
           {title}
         </span>
         <button
           type="button"
           onClick={nextMonth}
-          className="rounded px-2 py-0.5 text-sm text-stone-700 hover:bg-amber-100/80"
+          className="touch-no-callout rounded px-2 py-0.5 text-sm text-[color:var(--text-primary)] hover:bg-[var(--card-accent)]"
           aria-label="下一月"
         >
           ›
         </button>
       </div>
-      <p className="mt-1 text-center text-[10px] uppercase tracking-widest text-stone-500">
+      <p className="mt-1 text-center text-[10px] uppercase tracking-widest text-[color:var(--text-muted)]">
         月计划表
       </p>
 
-      <div className="mt-2 grid grid-cols-7 gap-px bg-amber-900/20 p-px">
+      <div
+        className="mt-2 grid grid-cols-7 gap-px p-px"
+        style={{ backgroundColor: "var(--cal-grid)" }}
+      >
         {WEEK_LABELS.map((w) => (
           <div
             key={w}
-            className="bg-[#f4ecd8] py-1 text-center text-[10px] font-medium text-stone-600"
+            className="py-1 text-center text-[10px] font-medium text-[color:var(--text-muted)]"
+            style={{ backgroundColor: "var(--cal-cell-empty)" }}
           >
             {w}
           </div>
@@ -94,7 +110,8 @@ export function LifeCalendar({ stickers }: LifeCalendarProps) {
             return (
               <div
                 key={`e-${i}`}
-                className="min-h-[4.5rem] bg-[#f4ecd8]/50"
+                className="min-h-[4.5rem]"
+                style={{ backgroundColor: "var(--cal-cell-empty)" }}
               />
             );
           }
@@ -109,13 +126,16 @@ export function LifeCalendar({ stickers }: LifeCalendarProps) {
               key={dayKey}
               type="button"
               data-calendar-day={dayKey}
-              onClick={() => setSelectedDayKey(dayKey)}
+              onClick={() => pickDay(dayKey)}
               className={[
-                "flex min-h-[4.5rem] flex-col items-stretch border border-transparent bg-[#fffef8] p-0.5 text-left transition hover:bg-amber-50/90",
-                selected ? "ring-2 ring-amber-600 ring-offset-1" : "",
+                "touch-no-callout flex min-h-[4.5rem] flex-col items-stretch border border-transparent p-0.5 text-left transition",
+                selected
+                  ? "ring-2 ring-[var(--accent)] ring-offset-1 ring-offset-[var(--dialog-surface)]"
+                  : "hover:brightness-[1.02]",
               ].join(" ")}
+              style={{ backgroundColor: "var(--cal-cell-bg)" }}
             >
-              <span className="font-[family-name:var(--font-hand)] text-sm leading-none text-stone-800">
+              <span className="font-[family-name:var(--font-hand)] text-sm leading-none text-[color:var(--text-primary)]">
                 {day}
               </span>
               <div className="mt-auto flex flex-1 flex-wrap content-end justify-start gap-0.5">
@@ -125,12 +145,12 @@ export function LifeCalendar({ stickers }: LifeCalendarProps) {
                     key={s.id}
                     src={s.src}
                     alt=""
-                    className="h-5 w-5 rounded-sm border border-amber-200/60 object-cover shadow-sm"
+                    className="h-5 w-5 rounded-sm border border-[color:var(--input-border)] object-cover shadow-sm"
                     draggable={false}
                   />
                 ))}
                 {more > 0 ? (
-                  <span className="self-center text-[9px] text-stone-500">
+                  <span className="self-center text-[9px] text-[color:var(--text-muted)]">
                     +{more}
                   </span>
                 ) : null}
@@ -142,8 +162,8 @@ export function LifeCalendar({ stickers }: LifeCalendarProps) {
 
       <button
         type="button"
-        onClick={() => setSelectedDayKey(null)}
-        className="mt-2 w-full rounded border border-dashed border-stone-400/70 bg-white/50 py-1.5 text-xs text-stone-700 hover:bg-white/80"
+        onClick={showAll}
+        className="touch-no-callout mt-2 w-full rounded border border-dashed border-[color:var(--input-border)] bg-[var(--board-bg)] py-1.5 text-xs text-[color:var(--text-primary)] hover:brightness-110"
       >
         显示全部日期
       </button>
