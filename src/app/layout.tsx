@@ -38,9 +38,9 @@ export default function RootLayout({
         <UiProvider>
           <GridPaper />
           <StickerProvider>
-            <header className="sticky top-0 z-20 border-b backdrop-blur-md bg-[var(--header-bg)] border-[color:var(--header-border)]">
+            <header className="glass-header sticky top-0 z-20 border-b border-[color:var(--header-border)]">
               <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-4">
-                <h1 className="pl-0.5 font-[family-name:var(--font-hand)] text-4xl tracking-wide text-[color:var(--text-primary)]">
+                <h1 className="app-title pl-0.5 text-3xl sm:text-4xl tracking-wide text-[color:var(--text-primary)]">
                   碎片生活
                 </h1>
                 <CategoryNav />

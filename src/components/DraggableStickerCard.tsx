@@ -20,11 +20,6 @@ type DraggableStickerCardProps = {
 const DRAG_Z_BASE = 1_000_000;
 const SELECTED_Z_BASE = 900_000;
 
-const dragLiftShadowLight =
-  "0 20px 40px rgba(0, 0, 0, 0.2), 0 10px 22px rgba(0, 0, 0, 0.14), 0 4px 8px rgba(0, 0, 0, 0.08)";
-const dragLiftShadowDark =
-  "0 24px 48px rgba(0, 0, 0, 0.65), 0 0 28px rgba(255, 255, 255, 0.14)";
-
 const dragLiftTransition = {
   duration: 0.2,
   ease: [0.25, 0.1, 0.25, 1] as const,
@@ -74,10 +69,10 @@ function StickerSelectedInfoBar({
 
   const barClass =
     theme === "apple"
-      ? "border border-black/10 bg-white/70 px-3 py-1.5 shadow-md backdrop-blur-[20px]"
+      ? "rounded-lg border border-black/10 bg-white/80 px-3 py-2 backdrop-blur-xl"
       : theme === "cute"
-        ? "border border-amber-400/55 bg-gradient-to-r from-amber-100/95 via-rose-50/88 to-amber-50/90 px-3 py-1.5 shadow-md backdrop-blur-sm"
-        : "border border-white/20 bg-white/10 px-3 py-1.5 shadow-lg backdrop-blur-md";
+        ? "torn-pill-label border border-amber-400/50 bg-gradient-to-r from-amber-100/95 via-rose-50/88 to-amber-50/90 px-5 py-2 backdrop-blur-sm"
+        : "rounded-lg border border-white/18 bg-[rgba(28,28,30,0.88)] px-3 py-2 backdrop-blur-xl";
 
   const textClass =
     theme === "dark"
@@ -85,6 +80,11 @@ function StickerSelectedInfoBar({
       : theme === "apple"
         ? "text-[#1D1D1F]"
         : "text-amber-950";
+
+  const fontCls =
+    theme === "cute"
+      ? "font-[family-name:var(--font-hand)]"
+      : "font-sans text-[11px] font-normal";
 
   return (
     <button
@@ -94,13 +94,13 @@ function StickerSelectedInfoBar({
         e.stopPropagation();
         onEdit();
       }}
-      className={`pointer-events-auto absolute bottom-2 left-1/2 z-[80] flex max-w-[min(100%,20rem)] -translate-x-1/2 flex-nowrap items-center gap-2 overflow-x-auto rounded-full text-left ${barClass}`}
+      className={`pointer-events-auto absolute bottom-3 left-1/2 z-[90] flex w-max max-w-[min(92vw,24rem)] -translate-x-1/2 flex-nowrap items-center gap-2 overflow-visible whitespace-nowrap text-left ${barClass}`}
       title="点击编辑"
     >
       {segments.map((s) => (
         <span
           key={s.key}
-          className={`whitespace-nowrap font-[family-name:var(--font-hand)] text-[11px] ${textClass}`}
+          className={`shrink-0 whitespace-nowrap ${fontCls} ${textClass}`}
         >
           {s.text}
         </span>
@@ -136,20 +136,13 @@ export function DraggableStickerCard({
   const isSelected =
     selectedSticker?.category === category && selectedSticker.id === item.id;
 
-  const dragShadow = useMemo(
-    () => (theme === "dark" ? dragLiftShadowDark : dragLiftShadowLight),
-    [theme],
-  );
-
   const selectedOutline = useMemo(() => {
     if (!isSelected) return "";
-    if (theme === "apple") {
-      return "outline outline-1 outline-[#007AFF] outline-offset-2";
-    }
     if (theme === "cute") {
       return "outline outline-2 outline-dashed outline-amber-600 outline-offset-2";
     }
-    return "outline outline-1 outline-[rgba(255,255,255,0.45)] outline-offset-2 [box-shadow:0_0_14px_rgba(255,255,255,0.14)]";
+    /* Apple/Dark：選中邊框在 motion.div className（!border / !shadow-none / !outline-none） */
+    return "";
   }, [isSelected, theme]);
 
   useEffect(() => {
@@ -212,6 +205,9 @@ export function DraggableStickerCard({
       ? "border-white/25 bg-zinc-900/90 text-white"
       : "border-stone-600/40 bg-stone-900/80 text-white";
 
+  const premiumSelectedChrome =
+    isSelected && (theme === "apple" || theme === "dark");
+
   return (
     <motion.div
       ref={cardRef}
@@ -228,7 +224,6 @@ export function DraggableStickerCard({
       animate={{
         scale: dragging ? 1.1 : 1,
         opacity: dragging ? 0.6 : 1,
-        boxShadow: dragging ? dragShadow : "0px 0px 0px rgba(0,0,0,0)",
       }}
       transition={dragLiftTransition}
       style={{
@@ -252,15 +247,20 @@ export function DraggableStickerCard({
         handleDragEnd();
       }}
       className={[
-        "relative select-none rounded-sm touch-no-callout",
+        "relative box-border select-none touch-no-callout",
+        premiumSelectedChrome
+          ? "rounded-xl !border-2 !border-white !shadow-none !outline-none"
+          : "rounded-sm border-2 border-transparent",
         selectedOutline,
-      ].join(" ")}
+      ]
+        .filter(Boolean)
+        .join(" ")}
     >
       {isSelected ? (
         <button
           type="button"
           aria-label="删除贴纸"
-          className={`absolute -left-0 -top-0 z-[70] flex h-6 w-6 items-center justify-center rounded-full border text-sm leading-none shadow-md hover:bg-red-900/90 ${deleteBtn}`}
+          className={`absolute -left-0 -top-0 z-[70] flex h-6 w-6 items-center justify-center rounded-full border text-sm leading-none hover:bg-red-900/90 ${deleteBtn}`}
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
             e.stopPropagation();
@@ -287,6 +287,7 @@ export function DraggableStickerCard({
           src={item.src}
           alt={item.name || "贴纸"}
           className="pb-1 pr-1"
+          edgeStyle={theme === "cute" ? "torn" : "cutout"}
           edgeHighlight={theme === "dark"}
         />
       </motion.div>
@@ -295,7 +296,7 @@ export function DraggableStickerCard({
           <div
             ref={pinchRef}
             role="presentation"
-            className={`absolute bottom-1 right-1 z-[75] h-7 w-7 touch-none rounded-full border shadow backdrop-blur-sm ${pinchSurface}`}
+            className={`absolute bottom-1 right-1 z-[75] h-7 w-7 touch-none rounded-full border backdrop-blur-sm ${pinchSurface}`}
             aria-label="双指缩放与旋转"
           />
           <StickerSelectedInfoBar

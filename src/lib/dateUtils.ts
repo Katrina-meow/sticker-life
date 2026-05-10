@@ -14,6 +14,20 @@ export function dayKeyFromDate(d: Date): string {
   return `${y}-${m}-${day}`;
 }
 
+/** 时:分（本地） */
+export function formatTimeHM(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+
+/** YYYY.MM.DD（展示用） */
+export function formatDateDots(iso: string): string {
+  return dayKeyFromRecordedAt(iso).replace(/-/g, ".");
+}
+
 /** 标签小字：YYYY-MM-DD HH:mm（本地） */
 export function formatRecordedAtLabel(iso: string): string {
   const d = new Date(iso);

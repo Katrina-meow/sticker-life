@@ -7,15 +7,29 @@ import type { AppTheme } from "@/context/UiContext";
 import { useUi } from "@/context/UiContext";
 import { useStickerStore } from "@/context/StickerContext";
 import { CalendarOverlay } from "@/components/CalendarOverlay";
+import { IconCalendar } from "@/components/icons/IconCalendar";
+import { IconCanvas } from "@/components/icons/IconCanvas";
+import { IconGrid } from "@/components/icons/IconGrid";
+import { IconTimeline } from "@/components/icons/IconTimeline";
 
 const navScrollClass =
   "flex flex-nowrap gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] touch-pan-x touch-no-callout [&::-webkit-scrollbar]:hidden";
+
+const iconBtnBase =
+  "shrink-0 flex h-9 w-9 items-center justify-center rounded-full border border-[color:var(--nav-pill-idle-border)] bg-[var(--nav-pill-idle-bg)] text-[color:var(--text-primary)] hover:brightness-105";
 
 export function CategoryNav() {
   const pathname = usePathname();
   const router = useRouter();
   const { categories, addCategory, stickersByCategory } = useStickerStore();
-  const { theme, setTheme, gridVisible, setGridVisible } = useUi();
+  const {
+    theme,
+    setTheme,
+    gridVisible,
+    setGridVisible,
+    workspaceView,
+    setWorkspaceView,
+  } = useUi();
   const [adding, setAdding] = useState(false);
   const [newLabel, setNewLabel] = useState("");
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -108,29 +122,69 @@ export function CategoryNav() {
               className={[
                 "h-6 w-6 shrink-0 rounded-full transition",
                 d.className,
-                theme === d.id ? "ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-[var(--header-bg)]" : "",
+                theme === d.id
+                  ? "ring-2 ring-[var(--accent)] ring-offset-2 ring-offset-[var(--header-bg)]"
+                  : "",
               ].join(" ")}
             />
           ))}
         </div>
 
-        <button
-          type="button"
-          onClick={() => setGridVisible(!gridVisible)}
-          aria-pressed={gridVisible}
-          aria-label={gridVisible ? "隐藏背景网格" : "显示背景网格"}
-          className="shrink-0 rounded-full border border-[color:var(--nav-pill-idle-border)] bg-[var(--nav-pill-idle-bg)] px-3 py-1.5 text-xs text-[color:var(--text-primary)] hover:brightness-105"
-        >
-          网格
-        </button>
+        <div className="flex shrink-0 gap-1" role="group" aria-label="视图">
+          <button
+            type="button"
+            onClick={() => setWorkspaceView("timeline")}
+            aria-label="时间轴视图"
+            aria-pressed={workspaceView === "timeline"}
+            className={[
+              iconBtnBase,
+              workspaceView === "timeline"
+                ? "border-[color:var(--nav-pill-active-border)] bg-[var(--nav-pill-active-bg)] text-[color:var(--nav-pill-active-text)]"
+                : "",
+            ].join(" ")}
+          >
+            <IconTimeline className="h-[18px] w-[18px]" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setWorkspaceView("canvas")}
+            aria-label="画板视图"
+            aria-pressed={workspaceView === "canvas"}
+            className={[
+              iconBtnBase,
+              workspaceView === "canvas"
+                ? "border-[color:var(--nav-pill-active-border)] bg-[var(--nav-pill-active-bg)] text-[color:var(--nav-pill-active-text)]"
+                : "",
+            ].join(" ")}
+          >
+            <IconCanvas className="h-[18px] w-[18px]" />
+          </button>
+        </div>
+
+        {theme === "cute" ? (
+          <button
+            type="button"
+            onClick={() => setGridVisible(!gridVisible)}
+            aria-pressed={gridVisible}
+            aria-label={gridVisible ? "隐藏背景网格" : "显示背景网格"}
+            className={[
+              iconBtnBase,
+              gridVisible
+                ? "border-[color:var(--nav-pill-active-border)] bg-[var(--nav-pill-active-bg)]"
+                : "",
+            ].join(" ")}
+          >
+            <IconGrid className="h-[18px] w-[18px]" />
+          </button>
+        ) : null}
 
         <button
           type="button"
           onClick={() => setCalendarOpen(true)}
           aria-label="打开日历"
-          className="shrink-0 rounded-full border border-[color:var(--nav-pill-idle-border)] bg-[var(--nav-pill-idle-bg)] px-3 py-1.5 text-xs text-[color:var(--text-primary)] hover:brightness-105"
+          className={iconBtnBase}
         >
-          日历
+          <IconCalendar className="h-[18px] w-[18px]" />
         </button>
       </nav>
 
@@ -159,7 +213,7 @@ export function CategoryNav() {
           <div className="relative z-10 w-full max-w-sm rounded-xl border border-[color:var(--card-border)] bg-[var(--dialog-surface)] p-5 shadow-lg">
             <h2
               id="add-cat-title"
-              className="font-[family-name:var(--font-hand)] text-xl text-[color:var(--text-primary)]"
+              className="text-xl font-semibold text-[color:var(--text-primary)]"
             >
               新建分类
             </h2>

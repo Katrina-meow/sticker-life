@@ -13,11 +13,14 @@ import {
   isoFromDayKeyWithTime,
 } from "@/lib/dateUtils";
 import { getFieldMode } from "@/lib/categoryConfig";
+import { useUi } from "@/context/UiContext";
 
 const inputClass =
   "mt-1.5 w-full rounded-lg border border-[color:var(--input-border)] bg-[var(--input-bg)] px-3 py-2 text-[color:var(--text-primary)] shadow-inner outline-none focus:ring-2 focus:ring-[color:var(--accent)]/35";
 
 export function StickerMetaDialog() {
+  const { theme } = useUi();
+  const premium = theme === "apple" || theme === "dark";
   const {
     dialog,
     closeDialog,
@@ -162,15 +165,39 @@ export function StickerMetaDialog() {
     >
       <button
         type="button"
-        className="absolute inset-0 bg-[var(--overlay-scrim)] backdrop-blur-[2px]"
+        className="absolute inset-0 bg-[var(--overlay-scrim)]"
+        style={{
+          backdropFilter: "blur(var(--glass-blur))",
+          WebkitBackdropFilter: "blur(var(--glass-blur))",
+        }}
         aria-label="关闭"
         onClick={handleBackdrop}
       />
-      <div className="relative z-10 w-full max-w-md overflow-hidden rounded-2xl border border-[color:var(--card-border)] bg-[var(--dialog-surface)] shadow-[0_20px_50px_rgba(0,0,0,0.18)]">
-        <div className="border-b border-[color:var(--dialog-header-border)] bg-[var(--card-accent)] px-5 py-4">
+      <div
+        className="elevated-surface relative z-10 w-full max-w-md overflow-hidden rounded-2xl border border-[color:var(--card-border)]"
+        style={
+          premium
+            ? {
+                background: "var(--dialog-glass-bg)",
+                backdropFilter: "blur(var(--glass-blur))",
+                WebkitBackdropFilter: "blur(var(--glass-blur))",
+              }
+            : { background: "var(--dialog-surface)" }
+        }
+      >
+        <div
+          className={[
+            "border-b border-[color:var(--dialog-header-border)] px-5 py-4",
+            premium ? "glass-header" : "bg-[var(--card-accent)]",
+          ].join(" ")}
+        >
           <h2
             id="sticker-dialog-title"
-            className="font-[family-name:var(--font-hand)] text-2xl text-[color:var(--text-primary)]"
+            className={
+              premium
+                ? "text-xl font-semibold tracking-tight text-[color:var(--text-primary)]"
+                : "font-[family-name:var(--font-hand)] text-2xl text-[color:var(--text-primary)]"
+            }
           >
             {title}
           </h2>
@@ -193,7 +220,13 @@ export function StickerMetaDialog() {
           {dialog.mode === "edit" && editingSticker ? (
             <p className="rounded-lg bg-[var(--card-accent)] px-3 py-2 text-xs text-[color:var(--text-muted)]">
               当前显示时间：{" "}
-              <span className="font-[family-name:var(--font-hand)] text-[color:var(--text-primary)]">
+              <span
+                className={
+                  premium
+                    ? "font-medium text-[color:var(--text-primary)]"
+                    : "font-[family-name:var(--font-hand)] text-[color:var(--text-primary)]"
+                }
+              >
                 {formatRecordedAtLabel(editingSticker.recordedAt)}
               </span>
               （修改日期会保留原有时分）
@@ -206,7 +239,12 @@ export function StickerMetaDialog() {
                   transform: `rotate(${previewRotation}deg) scale(0.9)`,
                 }}
               >
-                <TornSticker src={previewSrc} alt="预览" />
+                <TornSticker
+                  src={previewSrc}
+                  alt="预览"
+                  edgeStyle={premium ? "cutout" : "torn"}
+                  edgeHighlight={theme === "dark"}
+                />
               </div>
             </div>
           ) : null}

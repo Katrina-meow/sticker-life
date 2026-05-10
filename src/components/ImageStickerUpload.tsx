@@ -6,10 +6,12 @@ import {
   useRef,
   useState,
   type ChangeEvent,
+  type CSSProperties,
   type RefObject,
 } from "react";
 import type { CategoryKey } from "@/types/sticker";
 import { useStickerStore } from "@/context/StickerContext";
+import { useUi } from "@/context/UiContext";
 import { dayKeyFromRecordedAt } from "@/lib/dateUtils";
 import { processStickerImage } from "@/lib/processStickerImage";
 import { DraggableStickerCard } from "@/components/DraggableStickerCard";
@@ -109,8 +111,30 @@ type StickerBoardProps = {
 };
 
 export function StickerBoard({ category, workspaceRef }: StickerBoardProps) {
+  const { theme, canvasBackground } = useUi();
   const { stickersByCategory, selectedDayKey, clearSelection } =
     useStickerStore();
+  const premiumBoard = theme === "apple" || theme === "dark";
+  const hasCustomBg = canvasBackground.value.length > 0;
+
+  const boardSurfaceStyle = useMemo((): CSSProperties => {
+    if (!hasCustomBg) return {};
+    if (canvasBackground.type === "color") {
+      return {
+        backgroundColor: canvasBackground.value,
+        backgroundImage: "none",
+        transition: "background-color 0.3s ease",
+      };
+    }
+    return {
+      backgroundImage: `url(${JSON.stringify(canvasBackground.value)})`,
+      backgroundSize: "cover",
+      backgroundPosition: "center",
+      backgroundRepeat: "no-repeat",
+      transition: "background-color 0.3s ease",
+    };
+  }, [hasCustomBg, canvasBackground.type, canvasBackground.value]);
+
   const raw = useMemo(
     () => stickersByCategory[category] ?? [],
     [stickersByCategory, category],
@@ -132,7 +156,14 @@ export function StickerBoard({ category, workspaceRef }: StickerBoardProps) {
 
   return (
     <section className="mt-8">
-      <h2 className="mb-4 font-[family-name:var(--font-hand)] text-xl text-[color:var(--text-primary)]">
+      <h2
+        className={[
+          "mb-4 text-xl text-[color:var(--text-primary)]",
+          theme === "cute"
+            ? "font-[family-name:var(--font-hand)]"
+            : "font-semibold tracking-tight",
+        ].join(" ")}
+      >
         我的贴纸
       </h2>
       {raw.length === 0 ? (
@@ -144,7 +175,22 @@ export function StickerBoard({ category, workspaceRef }: StickerBoardProps) {
           {filterHint}
           {list.length === 0 ? null : (
             <div
-              className="relative mt-3 min-h-[min(680px,calc(100vh-12rem))] w-full rounded-xl border border-dashed border-[color:var(--board-border)] bg-[var(--board-bg)] px-2 py-3 shadow-inner touch-no-callout"
+              className={[
+                "relative mt-3 min-h-[min(680px,calc(100vh-12rem))] w-full px-2 py-3 touch-no-callout",
+                premiumBoard
+                  ? [
+                      "elevated-surface rounded-[var(--radius-board)] border border-[color:var(--board-border)]",
+                      hasCustomBg ? null : "bg-[var(--board-elevated-bg)]",
+                    ]
+                  : [
+                      "rounded-[var(--radius-board)] border border-dashed border-[color:var(--board-border)] shadow-inner",
+                      hasCustomBg ? null : "bg-[var(--board-bg)]",
+                    ],
+              ]
+                .flat()
+                .filter(Boolean)
+                .join(" ")}
+              style={boardSurfaceStyle}
               onPointerDown={(e) => {
                 const t = e.target as HTMLElement;
                 if (!t.closest("[data-sticker-card]")) clearSelection();
