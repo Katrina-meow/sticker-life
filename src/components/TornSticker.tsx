@@ -62,7 +62,7 @@ export function TornSticker({
       <img
         src={src}
         alt={alt}
-        className="max-h-52 w-auto max-w-[min(100%,280px)] object-contain select-none"
+        className="sticker-img-touch max-h-40 w-auto max-w-[220px] object-contain select-none"
         style={{ filter: layeredFilter }}
         draggable={false}
       />

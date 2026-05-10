@@ -5,3 +5,9 @@
 body {
   font-family: var(--font-noto), ui-sans-serif, system-ui, sans-serif;
 }
+
+.sticker-img-touch {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}

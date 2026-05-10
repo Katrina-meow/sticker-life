@@ -9,15 +9,15 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { CategoryId, StickerDialogState, StickerItem } from "@/types/sticker";
-import { loadStickersFromStorage, saveStickersToStorage } from "@/lib/stickerStorage";
-export type { CategoryId, StickerItem } from "@/types/sticker";
+import type { CategoryKey, StickerDialogState, StickerItem } from "@/types/sticker";
+import {
+  defaultCategoriesAndBuckets,
+  getFieldMode,
+  type CategoryEntry,
+} from "@/lib/categoryConfig";
+import { loadAppData, saveAppData } from "@/lib/stickerStorage";
 
-const emptyBuckets = (): Record<CategoryId, StickerItem[]> => ({
-  recipes: [],
-  fidget: [],
-  grocery: [],
-});
+export type { CategoryKey, StickerItem } from "@/types/sticker";
 
 function defaultPositionForIndex(index: number): { x: number; y: number } {
   const col = index % 5;
@@ -25,11 +25,12 @@ function defaultPositionForIndex(index: number): { x: number; y: number } {
   return { x: 32 + col * 56, y: 32 + row * 72 };
 }
 
-function nextGlobalZIndex(buckets: Record<CategoryId, StickerItem[]>): number {
+function nextGlobalZIndex(
+  buckets: Record<CategoryKey, StickerItem[]>,
+): number {
   let m = 0;
-  const cats: CategoryId[] = ["recipes", "fidget", "grocery"];
-  for (const c of cats) {
-    for (const s of buckets[c]) {
+  for (const list of Object.values(buckets)) {
+    for (const s of list) {
       if (typeof s.zIndex === "number" && s.zIndex > m) m = s.zIndex;
     }
   }
@@ -49,7 +50,27 @@ function inferRecordedAt(s: StickerItem): string {
   return new Date().toISOString();
 }
 
-function migrateSticker(s: StickerItem, cat: CategoryId): StickerItem {
+function normalizeStickerFields(s: StickerItem, cat: CategoryKey): StickerItem {
+  const mode = getFieldMode(cat);
+  const {
+    calories: c,
+    hero: h,
+    studyDuration: sd,
+    ...rest
+  } = s;
+  if (mode === "food") {
+    return { ...rest, calories: c };
+  }
+  if (mode === "game") {
+    return { ...rest, hero: h };
+  }
+  if (mode === "study") {
+    return { ...rest, studyDuration: sd };
+  }
+  return rest;
+}
+
+function migrateSticker(s: StickerItem, cat: CategoryKey): StickerItem {
   const pos = defaultPositionForIndex(0);
   const x =
     typeof s.x === "number" && !Number.isNaN(s.x) ? s.x : pos.x;
@@ -65,22 +86,8 @@ function migrateSticker(s: StickerItem, cat: CategoryId): StickerItem {
   const zIndex =
     typeof s.zIndex === "number" && Number.isFinite(s.zIndex) ? s.zIndex : 0;
 
-  if (cat === "recipes") {
-    return {
-      ...s,
-      x,
-      y,
-      name,
-      amount,
-      recordedAt,
-      scale,
-      zIndex,
-      calories: s.calories,
-    };
-  }
-  const { calories: _drop, ...rest } = s;
-  return {
-    ...rest,
+  const merged: StickerItem = {
+    ...s,
     x,
     y,
     name,
@@ -89,41 +96,74 @@ function migrateSticker(s: StickerItem, cat: CategoryId): StickerItem {
     scale,
     zIndex,
   };
+  return normalizeStickerFields(merged, cat);
 }
 
+function ensureBucketsForCategories(
+  categories: CategoryEntry[],
+  stickers: Record<CategoryKey, StickerItem[]>,
+): Record<CategoryKey, StickerItem[]> {
+  const next = { ...stickers };
+  for (const { id } of categories) {
+    if (!Array.isArray(next[id])) next[id] = [];
+  }
+  return next;
+}
+
+function migrateAllStickers(
+  stickers: Record<CategoryKey, StickerItem[]>,
+  categories: CategoryEntry[],
+): Record<CategoryKey, StickerItem[]> {
+  const buckets = ensureBucketsForCategories(categories, stickers);
+  const out: Record<CategoryKey, StickerItem[]> = {};
+  for (const { id } of categories) {
+    out[id] = (buckets[id] ?? []).map((s) => migrateSticker(s, id));
+  }
+  return out;
+}
+
+export type SelectedSticker = { category: CategoryKey; id: string };
+
 type StickerContextValue = {
-  stickersByCategory: Record<CategoryId, StickerItem[]>;
+  categories: CategoryEntry[];
+  addCategory: (label: string) => CategoryKey;
+  stickersByCategory: Record<CategoryKey, StickerItem[]>;
   dialog: StickerDialogState | null;
   selectedDayKey: string | null;
   setSelectedDayKey: (key: string | null) => void;
+  selectedSticker: SelectedSticker | null;
+  setSelectedSticker: (sel: SelectedSticker | null) => void;
+  clearSelection: () => void;
   openCreateSticker: (
-    category: CategoryId,
+    category: CategoryKey,
     src: string,
     rotationDeg: number,
   ) => void;
-  openEditSticker: (category: CategoryId, id: string) => void;
+  openEditSticker: (category: CategoryKey, id: string) => void;
   closeDialog: () => void;
-  addSticker: (category: CategoryId, item: StickerItem) => void;
-  removeSticker: (category: CategoryId, id: string) => void;
-  bringStickerToFront: (category: CategoryId, id: string) => void;
+  addSticker: (category: CategoryKey, item: StickerItem) => void;
+  removeSticker: (category: CategoryKey, id: string) => void;
+  bringStickerToFront: (category: CategoryKey, id: string) => void;
   updateStickerMeta: (
-    category: CategoryId,
+    category: CategoryKey,
     id: string,
-    patch: Partial<Pick<StickerItem, "name" | "amount" | "calories">>,
+    patch: Partial<
+      Pick<StickerItem, "name" | "amount" | "calories" | "hero" | "studyDuration">
+    >,
   ) => void;
   updateStickerPosition: (
-    category: CategoryId,
+    category: CategoryKey,
     id: string,
     x: number,
     y: number,
   ) => void;
   updateStickerRecordedAt: (
-    category: CategoryId,
+    category: CategoryKey,
     id: string,
     iso: string,
   ) => void;
   updateStickerTransform: (
-    category: CategoryId,
+    category: CategoryKey,
     id: string,
     patch: Partial<
       Pick<StickerItem, "x" | "y" | "rotationDeg" | "scale" | "recordedAt">
@@ -134,33 +174,52 @@ type StickerContextValue = {
 const StickerContext = createContext<StickerContextValue | null>(null);
 
 export function StickerProvider({ children }: { children: ReactNode }) {
+  const defaults = useMemo(() => defaultCategoriesAndBuckets(), []);
   const [hydrated, setHydrated] = useState(false);
-  const [stickersByCategory, setStickersByCategory] =
-    useState<Record<CategoryId, StickerItem[]>>(emptyBuckets);
+  const [categories, setCategories] = useState<CategoryEntry[]>(
+    () => defaults.categories,
+  );
+  const [stickersByCategory, setStickersByCategory] = useState<
+    Record<CategoryKey, StickerItem[]>
+  >(() => defaults.stickers);
   const [dialog, setDialog] = useState<StickerDialogState | null>(null);
   const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null);
+  const [selectedSticker, setSelectedSticker] =
+    useState<SelectedSticker | null>(null);
 
   useEffect(() => {
-    const loaded = loadStickersFromStorage();
+    const loaded = loadAppData();
     if (loaded) {
-      setStickersByCategory({
-        recipes: (loaded.recipes ?? []).map((s) => migrateSticker(s, "recipes")),
-        fidget: (loaded.fidget ?? []).map((s) => migrateSticker(s, "fidget")),
-        grocery: (loaded.grocery ?? []).map((s) =>
-          migrateSticker(s, "grocery"),
-        ),
-      });
+      const cats = loaded.categories.length
+        ? loaded.categories
+        : defaults.categories;
+      const stickers = migrateAllStickers(loaded.stickers, cats);
+      setCategories(cats);
+      setStickersByCategory(stickers);
     }
     setHydrated(true);
-  }, []);
+  }, [defaults]);
 
   useEffect(() => {
     if (!hydrated) return;
-    saveStickersToStorage(stickersByCategory);
-  }, [stickersByCategory, hydrated]);
+    saveAppData({ categories, stickers: stickersByCategory });
+  }, [categories, stickersByCategory, hydrated]);
+
+  const clearSelection = useCallback(() => setSelectedSticker(null), []);
+
+  const addCategory = useCallback((label: string) => {
+    const id = `custom-${Date.now()}`;
+    const trimmed = label.trim();
+    setCategories((prev) => [
+      ...prev,
+      { id, label: trimmed || "未命名" },
+    ]);
+    setStickersByCategory((prev) => ({ ...prev, [id]: [] }));
+    return id;
+  }, []);
 
   const openCreateSticker = useCallback(
-    (category: CategoryId, src: string, rotationDeg: number) => {
+    (category: CategoryKey, src: string, rotationDeg: number) => {
       setDialog({ mode: "create", category, src, rotationDeg });
     },
     [],
@@ -168,7 +227,7 @@ export function StickerProvider({ children }: { children: ReactNode }) {
 
   const closeDialog = useCallback(() => setDialog(null), []);
 
-  const bringStickerToFront = useCallback((category: CategoryId, id: string) => {
+  const bringStickerToFront = useCallback((category: CategoryKey, id: string) => {
     setStickersByCategory((prev) => {
       const z = nextGlobalZIndex(prev);
       return {
@@ -181,51 +240,55 @@ export function StickerProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const openEditSticker = useCallback(
-    (category: CategoryId, id: string) => {
+    (category: CategoryKey, id: string) => {
       bringStickerToFront(category, id);
       setDialog({ mode: "edit", category, id });
     },
     [bringStickerToFront],
   );
 
-  const addSticker = useCallback((category: CategoryId, item: StickerItem) => {
+  const addSticker = useCallback((category: CategoryKey, item: StickerItem) => {
     setStickersByCategory((prev) => {
       const z = nextGlobalZIndex(prev);
-      const normalized: StickerItem = {
-        ...item,
-        scale: item.scale ?? 1,
-        zIndex: z,
-      };
+      const normalized: StickerItem = normalizeStickerFields(
+        {
+          ...item,
+          scale: item.scale ?? 1,
+          zIndex: z,
+        },
+        category,
+      );
       return {
         ...prev,
-        [category]: [normalized, ...prev[category]],
+        [category]: [normalized, ...(prev[category] ?? [])],
       };
     });
   }, []);
 
-  const removeSticker = useCallback((category: CategoryId, id: string) => {
+  const removeSticker = useCallback((category: CategoryKey, id: string) => {
     setStickersByCategory((prev) => ({
       ...prev,
-      [category]: prev[category].filter((s) => s.id !== id),
+      [category]: (prev[category] ?? []).filter((s) => s.id !== id),
     }));
+    setSelectedSticker((sel) =>
+      sel?.category === category && sel.id === id ? null : sel,
+    );
   }, []);
 
   const updateStickerMeta = useCallback(
     (
-      category: CategoryId,
+      category: CategoryKey,
       id: string,
-      patch: Partial<Pick<StickerItem, "name" | "amount" | "calories">>,
+      patch: Partial<
+        Pick<StickerItem, "name" | "amount" | "calories" | "hero" | "studyDuration">
+      >,
     ) => {
       setStickersByCategory((prev) => ({
         ...prev,
-        [category]: prev[category].map((s) => {
+        [category]: (prev[category] ?? []).map((s) => {
           if (s.id !== id) return s;
           const merged = { ...s, ...patch };
-          if (category !== "recipes") {
-            const { calories: _c, ...rest } = merged;
-            return rest as StickerItem;
-          }
-          return merged;
+          return normalizeStickerFields(merged, category);
         }),
       }));
     },
@@ -233,10 +296,10 @@ export function StickerProvider({ children }: { children: ReactNode }) {
   );
 
   const updateStickerPosition = useCallback(
-    (category: CategoryId, id: string, x: number, y: number) => {
+    (category: CategoryKey, id: string, x: number, y: number) => {
       setStickersByCategory((prev) => ({
         ...prev,
-        [category]: prev[category].map((s) =>
+        [category]: (prev[category] ?? []).map((s) =>
           s.id === id ? { ...s, x, y } : s,
         ),
       }));
@@ -245,10 +308,10 @@ export function StickerProvider({ children }: { children: ReactNode }) {
   );
 
   const updateStickerRecordedAt = useCallback(
-    (category: CategoryId, id: string, iso: string) => {
+    (category: CategoryKey, id: string, iso: string) => {
       setStickersByCategory((prev) => ({
         ...prev,
-        [category]: prev[category].map((s) =>
+        [category]: (prev[category] ?? []).map((s) =>
           s.id === id ? { ...s, recordedAt: iso } : s,
         ),
       }));
@@ -258,7 +321,7 @@ export function StickerProvider({ children }: { children: ReactNode }) {
 
   const updateStickerTransform = useCallback(
     (
-      category: CategoryId,
+      category: CategoryKey,
       id: string,
       patch: Partial<
         Pick<StickerItem, "x" | "y" | "rotationDeg" | "scale" | "recordedAt">
@@ -266,7 +329,7 @@ export function StickerProvider({ children }: { children: ReactNode }) {
     ) => {
       setStickersByCategory((prev) => ({
         ...prev,
-        [category]: prev[category].map((s) =>
+        [category]: (prev[category] ?? []).map((s) =>
           s.id === id ? { ...s, ...patch } : s,
         ),
       }));
@@ -276,10 +339,15 @@ export function StickerProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(
     () => ({
+      categories,
+      addCategory,
       stickersByCategory,
       dialog,
       selectedDayKey,
       setSelectedDayKey,
+      selectedSticker,
+      setSelectedSticker,
+      clearSelection,
       openCreateSticker,
       openEditSticker,
       closeDialog,
@@ -292,9 +360,13 @@ export function StickerProvider({ children }: { children: ReactNode }) {
       updateStickerTransform,
     }),
     [
+      categories,
+      addCategory,
       stickersByCategory,
       dialog,
       selectedDayKey,
+      selectedSticker,
+      clearSelection,
       openCreateSticker,
       openEditSticker,
       closeDialog,
@@ -322,7 +394,7 @@ export function useStickerStore() {
 }
 
 export function buildNewStickerItem(
-  category: CategoryId,
+  category: CategoryKey,
   listLength: number,
   fields: {
     src: string;
@@ -330,12 +402,15 @@ export function buildNewStickerItem(
     name: string;
     amount: string;
     calories?: string;
+    hero?: string;
+    studyDuration?: string;
     recordedAt: string;
   },
 ): StickerItem {
   const pos = defaultPositionForIndex(listLength);
   const id = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-  return {
+  const mode = getFieldMode(category);
+  const base: StickerItem = {
     id,
     src: fields.src,
     rotationDeg: fields.rotationDeg,
@@ -346,8 +421,24 @@ export function buildNewStickerItem(
     recordedAt: fields.recordedAt,
     name: fields.name.trim(),
     amount: fields.amount.trim(),
-    ...(category === "recipes"
-      ? { calories: (fields.calories ?? "").trim() || undefined }
-      : {}),
   };
+  if (mode === "food") {
+    return {
+      ...base,
+      calories: (fields.calories ?? "").trim() || undefined,
+    };
+  }
+  if (mode === "game") {
+    return {
+      ...base,
+      hero: (fields.hero ?? "").trim() || undefined,
+    };
+  }
+  if (mode === "study") {
+    return {
+      ...base,
+      studyDuration: (fields.studyDuration ?? "").trim() || undefined,
+    };
+  }
+  return base;
 }

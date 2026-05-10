@@ -1,6 +1,7 @@
 "use client";
 
-import type { CategoryId, StickerItem } from "@/types/sticker";
+import type { CategoryKey, StickerItem } from "@/types/sticker";
+import { getFieldMode } from "@/lib/categoryConfig";
 import {
   formatMoney,
   shouldShowCaloriesRow,
@@ -9,7 +10,7 @@ import {
 } from "@/lib/stats";
 
 type CategorySummaryCardProps = {
-  category: CategoryId;
+  category: CategoryKey;
   stickers: StickerItem[];
 };
 
@@ -17,6 +18,7 @@ export function CategorySummaryCard({
   category,
   stickers,
 }: CategorySummaryCardProps) {
+  const mode = getFieldMode(category);
   const totalAmount = sumAmount(stickers);
   const totalKcal = sumCalories(stickers);
   const showKcal = shouldShowCaloriesRow(category);
@@ -26,22 +28,43 @@ export function CategorySummaryCard({
       <div className="pointer-events-none absolute -right-1 -top-1 h-10 w-10 rotate-12 border border-amber-800/15 bg-amber-100/40" />
       <p className="text-xs text-stone-600">当前视图汇总（纸角随手记）</p>
       <div className="mt-2 flex flex-wrap items-baseline gap-x-6 gap-y-1">
-        <div>
-          <span className="text-xs text-stone-500">总金额</span>
-          <p className="font-[family-name:var(--font-hand)] text-2xl text-amber-950">
-            {formatMoney(totalAmount)}
-            <span className="ml-1 text-base text-stone-600">元</span>
-          </p>
-        </div>
-        {showKcal ? (
+        {mode === "game" ? (
           <div>
-            <span className="text-xs text-stone-500">总热量</span>
+            <span className="text-xs text-stone-500">记录条数</span>
             <p className="font-[family-name:var(--font-hand)] text-2xl text-amber-950">
-              {Math.round(totalKcal)}
-              <span className="ml-1 text-base text-stone-600">kcal</span>
+              {stickers.length}
+              <span className="ml-1 text-base text-stone-600">条</span>
             </p>
           </div>
-        ) : null}
+        ) : (
+          <>
+            <div>
+              <span className="text-xs text-stone-500">总金额</span>
+              <p className="font-[family-name:var(--font-hand)] text-2xl text-amber-950">
+                {formatMoney(totalAmount)}
+                <span className="ml-1 text-base text-stone-600">元</span>
+              </p>
+            </div>
+            {showKcal ? (
+              <div>
+                <span className="text-xs text-stone-500">总热量</span>
+                <p className="font-[family-name:var(--font-hand)] text-2xl text-amber-950">
+                  {Math.round(totalKcal)}
+                  <span className="ml-1 text-base text-stone-600">kcal</span>
+                </p>
+              </div>
+            ) : null}
+            {mode === "study" && stickers.length > 0 ? (
+              <div>
+                <span className="text-xs text-stone-500">学习记录</span>
+                <p className="font-[family-name:var(--font-hand)] text-xl text-amber-950">
+                  {stickers.length}
+                  <span className="ml-1 text-base text-stone-600">条</span>
+                </p>
+              </div>
+            ) : null}
+          </>
+        )}
       </div>
       {stickers.length === 0 ? (
         <p className="mt-1 text-xs text-stone-500">暂无记录可统计</p>

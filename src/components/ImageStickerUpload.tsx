@@ -8,7 +8,7 @@ import {
   type ChangeEvent,
   type RefObject,
 } from "react";
-import type { CategoryId } from "@/types/sticker";
+import type { CategoryKey } from "@/types/sticker";
 import { useStickerStore } from "@/context/StickerContext";
 import { dayKeyFromRecordedAt } from "@/lib/dateUtils";
 import { processStickerImage } from "@/lib/processStickerImage";
@@ -25,7 +25,7 @@ function isImageLikeFile(file: File): boolean {
 }
 
 type ImageStickerUploadProps = {
-  category: CategoryId;
+  category: CategoryKey;
 };
 
 export function ImageStickerUpload({ category }: ImageStickerUploadProps) {
@@ -104,12 +104,13 @@ export function ImageStickerUpload({ category }: ImageStickerUploadProps) {
 }
 
 type StickerBoardProps = {
-  category: CategoryId;
+  category: CategoryKey;
   workspaceRef: RefObject<HTMLDivElement | null>;
 };
 
 export function StickerBoard({ category, workspaceRef }: StickerBoardProps) {
-  const { stickersByCategory, selectedDayKey } = useStickerStore();
+  const { stickersByCategory, selectedDayKey, clearSelection } =
+    useStickerStore();
   const raw = stickersByCategory[category];
 
   const list = useMemo(() => {
@@ -137,7 +138,13 @@ export function StickerBoard({ category, workspaceRef }: StickerBoardProps) {
         <>
           {filterHint}
           {list.length === 0 ? null : (
-            <div className="relative mt-3 min-h-[680px] w-full rounded-xl border border-dashed border-stone-400/35 bg-white/25 px-2 py-3 shadow-inner">
+            <div
+              className="relative mt-3 min-h-[680px] w-full rounded-xl border border-dashed border-stone-400/35 bg-white/25 px-2 py-3 shadow-inner"
+              onPointerDown={(e) => {
+                const t = e.target as HTMLElement;
+                if (!t.closest("[data-sticker-card]")) clearSelection();
+              }}
+            >
               {list.map((item) => (
                 <DraggableStickerCard
                   key={item.id}

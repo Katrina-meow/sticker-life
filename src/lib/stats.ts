@@ -1,4 +1,5 @@
-import type { CategoryId, StickerItem } from "@/types/sticker";
+import type { CategoryKey, StickerItem } from "@/types/sticker";
+import { getFieldMode } from "@/lib/categoryConfig";
 
 /** 从「18 元」「¥12.5」等字符串中提取首个数字 */
 export function parseAmount(amountStr: string): number {
@@ -29,6 +30,6 @@ export function formatMoney(n: number): string {
   return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2);
 }
 
-export function shouldShowCaloriesRow(category: CategoryId): boolean {
-  return category === "recipes";
+export function shouldShowCaloriesRow(category: CategoryKey): boolean {
+  return getFieldMode(category) === "food";
 }

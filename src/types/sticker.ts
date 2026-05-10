@@ -1,4 +1,5 @@
-export type CategoryId = "recipes" | "fidget" | "grocery";
+/** 稳定 slug：预设如 eat、honor；自定义如 custom-1730xxxx */
+export type CategoryKey = string;
 
 export type StickerItem = {
   id: string;
@@ -15,21 +16,25 @@ export type StickerItem = {
   recordedAt: string;
   /** 菜名或物品名称 */
   name: string;
-  /** 金额 */
+  /** 金额；游戏模式下展示为「战绩」 */
   amount: string;
-  /** 热量（kcal），仅今日食谱使用 */
+  /** 热量（kcal），仅 food 模式 */
   calories?: string;
+  /** 王者/和平等：英雄 */
+  hero?: string;
+  /** 学习分类：时长文案 */
+  studyDuration?: string;
 };
 
 export type StickerDialogState =
   | {
       mode: "create";
-      category: CategoryId;
+      category: CategoryKey;
       src: string;
       rotationDeg: number;
     }
   | {
       mode: "edit";
-      category: CategoryId;
+      category: CategoryKey;
       id: string;
     };
